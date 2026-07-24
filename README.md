@@ -1,61 +1,61 @@
-# LLM Fundamentals
+# LLM Fundamentals · 大模型基础学习
 
-**大模型基础学习** — An interactive visualization tool to understand how Large Language Models work under the hood.
+一个交互式的大模型原理学习工具，用真实计算带你理解 Transformer 是怎么"思考"的。
 
-## Features
+## ✨ 特点
 
-- **Zero dependencies** — Single HTML file, works in any modern browser
-- **Real calculations** — All numbers are computed on-the-fly, not hardcoded
-- **Chinese-first** — Designed for Chinese learners, demonstrates attention with Chinese sentences
+- **零依赖**：单个 HTML 文件，打开浏览器就能用
+- **真实计算**：所有数字都是当场算的，不是假数据
+- **中文优先**：专为中文学习者设计，用中文句子演示注意力机制
 
-## What's Inside
+## 📦 包含内容
 
-### Part 1 · Geometry of Parameters
-- **Semantic Map**: Meaning is position (2D vector space visualization)
-- **Attention Mechanism**: How the model knows what "it" refers to
-- **Residual Flow**: Why deep networks can train stably
-- **Dense vs MoE**: DeepSeek's Mixture-of-Experts architecture
+### Part 1 · 参数的几何意义
+- **语义地图**：意义即位置（2D 向量空间可视化）
+- **注意力机制**：模型怎么知道"它"指的是什么
+- **残差流**：为什么深层网络能稳定训练
+- **Dense vs MoE**：DeepSeek 的专家混合架构
 
-### Part 2 · Into the Matrix Space
-- **BPE Tokenization**: How text becomes tokens
-- **QKV Projection**: Step-by-step matrix multiplication
-- **Attention Heatmap**: What QKᵀ looks like
-- **Multi-Head Split**: How one vector gets split across heads
-- **MLP Matrix Flow**: Complete SwiGLU pipeline
-- **RoPE Encoding**: How position information "rotates" into vectors
+### Part 2 · 钻进矩阵空间
+- **BPE 分词**：文本怎么变成 token
+- **QKV 投影**：矩阵乘法逐步演示
+- **注意力热力图**：QKᵀ 长什么样
+- **多头分块**：一个向量怎么被切成多个头
+- **MLP 矩阵流**：SwiGLU 完整流程
+- **RoPE 旋转编码**：位置信息怎么"转"进向量
 
-### Part 3 · Training Panorama
-- **Four-Stage Timeline**: Pre-training → SFT → RLHF → Inference Optimization
-- **KV Cache**: Why generation doesn't get slower over time
-- **Learning Rate Schedule**: Warmup + Cosine Decay
-- **GQA**: Memory-efficient attention used by Llama/DeepSeek
+### Part 3 · 训练全景
+- **四阶段时间线**：预训练 → SFT → RLHF → 推理优化
+- **KV Cache**：为什么逐词生成不会越来越慢
+- **学习率调度**：Warmup + Cosine Decay
+- **GQA**：Llama/DeepSeek 都在用的省显存术
 
-### Part 4 · Try Your Own Sentence
-- Input any Chinese sentence and see attention distribution
-- Local heuristic algorithm — no network, no latency
+### Part 4 · 试试你的句子
+- 输入任意中文句子，看注意力如何分配
+- 本地启发式算法，无需联网、无延迟
 
-## Quick Start
+## 🚀 使用方法
 
-Open `index.html` in your browser.
+直接用浏览器打开 `index.html` 即可。
 
-Or start a local server:
+或者启动本地服务器：
 ```bash
 python -m http.server 8000
-# Then visit http://localhost:8000
+# 然后访问 http://localhost:8000
 ```
 
-## Who Is This For
+## 🎯 适合谁看
 
-- Beginners who want to understand Transformer internals
-- Developers explaining LLM concepts to others
-- Anyone preparing for technical interviews
+- 想理解 Transformer 内部原理的初学者
+- 需要向别人讲解大模型的技术人员
+- 准备面试、想复习核心概念的开发者
 
-## Technical Details
+## 📝 技术实现
 
-- Pure frontend: HTML + CSS + JavaScript
-- All calculations implemented in vanilla JS, no frameworks
-- SVG for vector diagrams and heatmaps
+- 纯前端 HTML + CSS + JavaScript
+- 所有计算用原生 JS 实现，无框架依赖
+- SVG 绑制向量图和热力图
 
-## License
+## 📄 开源协议
 
 MIT

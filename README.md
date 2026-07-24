@@ -2,6 +2,8 @@
 
 一个交互式的大模型原理学习工具，用真实计算带你理解 Transformer 是怎么"思考"的。
 
+**🌐 在线体验：[https://ydsgangge-ux.github.io/llm-fundamentals/](https://ydsgangge-ux.github.io/llm-fundamentals/)**
+
 ## ✨ 特点
 
 - **零依赖**：单个 HTML 文件，打开浏览器就能用
@@ -36,12 +38,14 @@
 
 ## 🚀 使用方法
 
-直接用浏览器打开 `index.html` 即可。
+**在线访问**：[https://ydsgangge-ux.github.io/llm-fundamentals/](https://ydsgangge-ux.github.io/llm-fundamentals/)
 
-或者启动本地服务器：
+或本地运行：
 ```bash
-python -m http.server 8000
-# 然后访问 http://localhost:8000
+# 克隆仓库
+git clone https://github.com/ydsgangge-ux/llm-fundamentals.git
+
+# 打开 index.html 即可
 ```
 
 ## 🎯 适合谁看

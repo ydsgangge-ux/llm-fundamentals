@@ -1157,6 +1157,7 @@ function renderSpaceMap(){
     circle.setAttribute('fill', w.c);
     const text = document.createElementNS(svgNS,'text');
     text.setAttribute('x', w.x+9); text.setAttribute('y', w.y+4);
+    text.setAttribute('fill','#d8dee9');
     text.textContent = w.zh;
     g.appendChild(circle); g.appendChild(text);
     g.addEventListener('click', ()=> pickWord(w.id));
@@ -1271,6 +1272,7 @@ function renderAttMap(){
     circle.setAttribute('stroke','#b586f5'); circle.setAttribute('stroke-width', r.id===currentQuery?'2.5':'0');
     const text = document.createElementNS(svgNS,'text');
     text.setAttribute('x', x+9); text.setAttribute('y', y+4);
+    text.setAttribute('fill','#d8dee9');
     text.textContent = r.zh;
     g.appendChild(circle); g.appendChild(text);
     attMap.appendChild(g);

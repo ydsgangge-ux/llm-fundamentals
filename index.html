@@ -1,0 +1,2373 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>大模型解剖室</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
+
+:root{
+  --bg: #0a0d12;
+  --bg2: #10151d;
+  --panel: #131922;
+  --line: #232b38;
+  --text: #d8dee9;
+  --dim: #6b7686;
+  --infer: #4dd6c4;   /* 推理路径：青色信号 */
+  --infer-dim: #245a53;
+  --train: #f2a65a;   /* 训练路径：橙色信号 */
+  --train-dim: #7a5228;
+  --core: #b586f5;    /* Transformer 核心：紫色 */
+}
+
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+  min-height:100vh;
+}
+
+.wrap{
+  display:grid;
+  grid-template-columns: 1fr;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 18px 80px;
+}
+
+header{
+  text-align:center;
+  margin-bottom: 30px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid var(--line);
+}
+header .eyebrow{
+  font-family:'JetBrains Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: var(--dim);
+  text-transform:uppercase;
+}
+header h1{
+  font-size: 30px;
+  font-weight:900;
+  margin: 8px 0 6px;
+  background: linear-gradient(90deg, var(--infer), var(--core), var(--train));
+  -webkit-background-clip:text;
+  background-clip:text;
+  color:transparent;
+}
+header p{ color: var(--dim); font-size:14px; }
+
+.mode-toggle{
+  display:flex; justify-content:center; gap:8px; margin: 22px 0 8px;
+  font-family:'JetBrains Mono', monospace; font-size:12px;
+}
+.mode-toggle button{
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--dim);
+  padding: 8px 16px;
+  border-radius: 999px;
+  cursor:pointer;
+  transition: all .2s;
+}
+.mode-toggle button.active[data-mode="infer"]{ color: var(--infer); border-color: var(--infer); box-shadow: 0 0 14px -4px var(--infer); }
+.mode-toggle button.active[data-mode="train"]{ color: var(--train); border-color: var(--train); box-shadow: 0 0 14px -4px var(--train); }
+
+.hint{ text-align:center; color: var(--dim); font-size:12px; margin-bottom: 26px; font-family:'JetBrains Mono',monospace;}
+
+.diagram{
+  display:flex; flex-direction:column; align-items:center; gap:0;
+}
+
+.node{
+  position:relative;
+  width: min(420px, 92vw);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 18px;
+  cursor:pointer;
+  transition: all .18s ease;
+  text-align:center;
+}
+.node:hover{ transform: translateY(-2px); border-color: var(--dim); }
+.node.selected{ box-shadow: 0 0 0 2px var(--sel, var(--core)); }
+.node .zh{ font-weight:700; font-size:15px; }
+.node .en{ font-family:'JetBrains Mono', monospace; font-size:11px; color:var(--dim); margin-top:2px;}
+
+.connector{
+  width:2px; height:26px; background: var(--line);
+  position:relative;
+}
+.connector.flow::after{
+  content:''; position:absolute; left:-3px; top:0; width:8px; height:8px;
+  border-radius:50%;
+  background: var(--infer);
+  box-shadow: 0 0 8px 2px var(--infer);
+  animation: flow 1.6s linear infinite;
+}
+.connector.flow.train::after{ background: var(--train); box-shadow: 0 0 8px 2px var(--train); }
+@keyframes flow{
+  0%{ top:-4px; opacity:0; }
+  15%{ opacity:1; }
+  85%{ opacity:1; }
+  100%{ top:100%; opacity:0; }
+}
+
+.branch{
+  display:flex; gap:14px; width:min(720px,96vw); justify-content:center; margin: 4px 0;
+}
+.branch .col{ flex:1; display:flex; flex-direction:column; align-items:center; gap:0; }
+.branch .colhead{
+  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--dim);
+  padding: 4px 10px; margin-bottom: 8px; border:1px dashed var(--line); border-radius:6px;
+}
+
+.loopbox{
+  border: 1px dashed var(--core);
+  border-radius: 14px;
+  padding: 18px 14px 10px;
+  position:relative;
+  margin: 6px 0;
+}
+.loopbox .looplabel{
+  position:absolute; top:-11px; left:50%; transform:translateX(-50%);
+  background:var(--bg); color:var(--core); font-family:'JetBrains Mono',monospace;
+  font-size:11px; padding:0 8px;
+}
+
+/* detail panel */
+.panel{
+  position: fixed;
+  right: 0; top:0; bottom:0;
+  width: min(420px, 100vw);
+  background: var(--bg2);
+  border-left: 1px solid var(--line);
+  transform: translateX(100%);
+  transition: transform .25s ease;
+  overflow-y:auto;
+  padding: 26px 24px 60px;
+  z-index: 50;
+}
+.panel.open{ transform: translateX(0); }
+.panel .close{
+  position:absolute; top:18px; right:18px;
+  background:none; border:none; color:var(--dim); font-size:20px; cursor:pointer;
+}
+.panel h2{ font-size:22px; margin-bottom:2px; padding-right:30px;}
+.panel .sub{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--dim); margin-bottom:18px;}
+.panel section{ margin-bottom: 20px; }
+.panel section h3{
+  font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:1.5px;
+  color: var(--infer); text-transform:uppercase; margin-bottom:8px;
+}
+.panel section p{ font-size:14.5px; line-height:1.75; color:var(--text); }
+.panel .formula{
+  font-family:'JetBrains Mono',monospace; background:#0d1219; border:1px solid var(--line);
+  border-radius:8px; padding:12px 14px; font-size:13px; color:var(--infer); overflow-x:auto; margin-bottom:8px;
+}
+.overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:opacity .2s; z-index:40;
+}
+.overlay.open{ opacity:1; pointer-events:auto; }
+
+.adv-toggle{
+  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--core);
+  background:none; border:1px solid var(--core); border-radius:6px; padding:7px 12px;
+  cursor:pointer; margin-top:6px;
+}
+.adv-toggle:hover{ background:var(--core); color:#0a0d12; }
+.adv-content{ display:none; margin-top:16px; padding-top:16px; border-top:1px dashed var(--line); }
+.adv-content.open{ display:block; }
+.adv-content h4{ font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--train); letter-spacing:1px; text-transform:uppercase; margin: 14px 0 6px; }
+.adv-content h4:first-child{ margin-top:0; }
+.adv-content p{ font-size:13.5px; line-height:1.75; color:var(--text); margin-bottom:6px; }
+
+/* ===== Part 2: Vector Space ===== */
+.section-divider{
+  max-width:1100px; margin: 10px auto 0; padding: 0 18px;
+  display:flex; align-items:center; gap:14px;
+}
+.section-divider .line{ flex:1; height:1px; background:var(--line); }
+.section-divider span{
+  font-family:'JetBrains Mono',monospace; font-size:11px; color:var(--core);
+  letter-spacing:2px; white-space:nowrap;
+}
+
+.vwrap{ max-width: 1100px; margin: 0 auto; padding: 40px 18px 100px; }
+.vwrap > .vintro{ text-align:center; max-width:640px; margin: 0 auto 34px; }
+.vwrap > .vintro h2{ font-size:24px; margin-bottom:10px; }
+.vwrap > .vintro p{ color:var(--dim); font-size:13.5px; line-height:1.8; }
+.vwrap > .vintro .caveat{
+  margin-top:14px; display:block; font-family:'JetBrains Mono',monospace;
+  font-size:11.5px; color:var(--core); border:1px dashed var(--core);
+  border-radius:8px; padding:10px 14px; text-align:left; line-height:1.75;
+}
+
+.vblock{
+  background: var(--panel); border:1px solid var(--line); border-radius:14px;
+  padding: 22px 20px 26px; margin-bottom: 26px;
+}
+.vblock h3{ font-size:16px; margin-bottom:4px; }
+.vblock .vsub{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--dim); margin-bottom:16px; }
+
+.legend{ display:flex; flex-wrap:wrap; gap:10px 16px; margin-bottom:14px; font-size:12px; color:var(--dim); }
+.legend span{ display:inline-flex; align-items:center; gap:6px; }
+.legend i{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+.space-map-wrap{ display:flex; gap:20px; flex-wrap:wrap; align-items:flex-start; }
+.space-map-wrap svg{ background:#0d1219; border-radius:10px; border:1px solid var(--line); flex-shrink:0; max-width:100%; height:auto; }
+.space-point circle{ cursor:pointer; }
+.space-point text{ font-size:11px; fill:var(--text); pointer-events:none; font-weight:500; }
+.space-point.picked circle{ stroke:#fff; stroke-width:2px; }
+
+.vec-side{ flex:1; min-width:220px; }
+.vec-caption{ font-size:13px; line-height:1.75; color:var(--text); min-height:70px; }
+.vec-caption b{ color:var(--core); }
+.vbtn{
+  font-family:'JetBrains Mono',monospace; font-size:12px; background:#171f2b; color:var(--core);
+  border:1px solid var(--core); border-radius:8px; padding:9px 14px; cursor:pointer; margin-top:10px;
+  transition: all .15s;
+}
+.vbtn:hover{ background: var(--core); color:#0a0d12; }
+
+.att-wrap{ display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; }
+.att-tokens{ display:flex; flex-wrap:wrap; gap:8px; max-width:250px; margin-top:12px; }
+.att-tok{
+  font-size:13px; padding:7px 12px; border-radius:8px; border:1px solid var(--line);
+  background:#171f2b; cursor:pointer; transition: all .15s; font-weight:500;
+}
+.att-tok:hover{ border-color:var(--dim); }
+.att-tok.query{ border-color:var(--core); color:var(--core); box-shadow:0 0 10px -3px var(--core); }
+.att-table{ width:100%; border-collapse:collapse; margin-top:14px; font-size:12.5px; }
+.att-table td{ padding:5px 6px; border-bottom:1px solid var(--line); }
+.att-table td:first-child{ color:var(--dim); white-space:nowrap; }
+.att-bar-bg{ background:#0d1219; border-radius:4px; height:8px; overflow:hidden; }
+.att-bar-fill{ height:100%; background:var(--core); border-radius:4px; transition: width .3s; }
+.footnote{ margin-top:14px; font-size:12px; color:var(--dim); line-height:1.7; }
+
+.resid-strip{ display:flex; align-items:flex-start; overflow-x:auto; padding: 20px 4px 4px; }
+.resid-stop{ display:flex; flex-direction:column; align-items:center; min-width:112px; flex-shrink:0; }
+.resid-dot{ width:16px; height:16px; border-radius:50%; background: var(--core); box-shadow: 0 0 10px -1px var(--core); }
+.resid-arrow{ flex:1; min-width:24px; height:2px; background:var(--line); position:relative; margin-top:8px; }
+.resid-arrow::after{
+  content:'+Δ'; position:absolute; top:-19px; left:50%; transform:translateX(-50%);
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim);
+}
+.resid-label{ font-size:11.5px; color:var(--dim); text-align:center; margin-top:8px; line-height:1.5; max-width:104px; }
+.resid-label b{ display:block; color:var(--text); font-size:12px; margin-bottom:2px; }
+
+.moe-toggle{ display:flex; gap:8px; margin-bottom:18px; }
+.moe-btn{ font-family:'JetBrains Mono',monospace; font-size:12px; background:#171f2b; border:1px solid var(--line); color:var(--dim); padding:7px 14px; border-radius:8px; cursor:pointer; }
+.moe-btn.active{ color:var(--core); border-color:var(--core); box-shadow:0 0 10px -3px var(--core); }
+.moe-row{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; padding:14px 0; }
+.moe-token{ font-family:'JetBrains Mono',monospace; font-size:11.5px; background:#171f2b; border:1px solid var(--line); border-radius:8px; padding:12px 14px; text-align:center; }
+.moe-arrow{ color:var(--dim); font-size:15px; }
+.moe-router{ font-family:'JetBrains Mono',monospace; font-size:11px; background:#171f2b; border:1px solid var(--core); color:var(--core); border-radius:8px; padding:12px 14px; text-align:center; }
+.expert-grid{ display:flex; gap:6px; flex-wrap:wrap; max-width:280px; justify-content:center; }
+.expert-box{ width:42px; height:42px; border-radius:8px; background:#171f2b; border:1px solid var(--line); color:var(--dim); display:flex; align-items:center; justify-content:center; font-family:'JetBrains Mono',monospace; font-size:11px; transition: all .2s; text-align:center; line-height:1.3; }
+.expert-box.active{ background:var(--core); color:#0a0d12; border-color:var(--core); box-shadow:0 0 12px -2px var(--core); font-weight:700; }
+.expert-box.shared{ background:var(--train-dim); border-color:var(--train); color:var(--train); font-size:9.5px; font-weight:700; }
+
+.own-input-row{ display:flex; gap:10px; flex-wrap:wrap; }
+.own-input{
+  flex:1; min-width:220px; background:#171f2b; border:1px solid var(--line); border-radius:8px;
+  color:var(--text); font-size:14px; padding:10px 14px; font-family:'Noto Sans SC',sans-serif;
+}
+.own-input:focus{ outline:none; border-color:var(--core); }
+.own-result{ margin-top:18px; }
+.own-tokens{ display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; }
+.own-tok{ font-size:13px; padding:7px 12px; border-radius:8px; border:1px solid var(--line); background:#171f2b; cursor:pointer; transition:all .15s; display:flex; flex-direction:column; align-items:center; gap:3px; min-width:48px; }
+.own-tok:hover{ border-color:var(--dim); }
+.own-tok.query{ border-color:var(--core); color:var(--core); box-shadow:0 0 10px -3px var(--core); }
+.own-tok-word{ font-size:13px; }
+.own-tok-pos{ font-size:9px; padding:1px 5px; border-radius:3px; border:1px solid; opacity:0.8; }
+.own-loading{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--dim); }
+.own-error{ font-family:'JetBrains Mono',monospace; font-size:12px; color:var(--train); }
+.own-caption{ font-size:12px; color:var(--dim); margin-bottom:10px; line-height:1.6; }
+.own-heatmap{ margin-top:20px; }
+.own-heat-title{ font-size:12px; color:var(--dim); margin-bottom:8px; }
+.own-heat-grid{ display:grid; gap:2px; max-width:100%; overflow-x:auto; }
+.own-heat-cell{ width:32px; height:28px; display:flex; align-items:center; justify-content:center; font-size:9px; font-family:'JetBrains Mono',monospace; border-radius:3px; }
+.own-heat-cell.corner{ background:none; }
+.own-heat-cell.col-head{ color:var(--dim); font-size:9px; background:none; writing-mode:vertical-lr; text-orientation:upright; height:40px; }
+.own-heat-cell.row-head{ color:var(--dim); font-size:9px; background:none; text-align:right; justify-content:flex-end; padding-right:4px; width:42px; }
+.own-heat-cell:not(.corner):not(.col-head):not(.row-head){ transition: transform .15s; cursor:pointer; }
+.own-heat-cell:not(.corner):not(.col-head):not(.row-head):hover{ transform:scale(1.3); z-index:1; }
+
+.mh-section{ margin-top:22px; padding-top:18px; border-top:1px dashed var(--line); }
+.mh-title{ font-size:14px; margin-bottom:6px; color:var(--text); }
+.mh-desc{ font-size:13px; color:var(--dim); line-height:1.7; margin-bottom:14px; }
+.mh-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:14px; }
+.mh-head{ background:#0d1219; border:1px solid var(--line); border-radius:10px; padding:12px; }
+.mh-head-title{ font-family:'JetBrains Mono',monospace; font-size:10.5px; margin-bottom:9px; text-align:center; }
+.mh-row{ display:flex; align-items:center; gap:6px; margin-bottom:5px; font-size:11px; }
+.mh-row .mh-label{ width:40px; flex-shrink:0; color:var(--dim); }
+.mh-row .mh-bar-bg{ flex:1; background:#171f2b; border-radius:3px; height:6px; overflow:hidden; }
+.mh-row .mh-bar-fill{ height:100%; border-radius:3px; }
+.mh-row .mh-pct{ width:34px; text-align:right; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim); flex-shrink:0; }
+
+.grad-compare-row{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+.grad-compare-label{ width:76px; flex-shrink:0; font-size:12px; color:var(--dim); font-family:'JetBrains Mono',monospace; }
+.grad-bars{ display:flex; align-items:flex-end; gap:3px; height:50px; flex:1; }
+.grad-bar{ flex:1; border-radius:2px 2px 0 0; min-width:4px; }
+
+.bp-graph{ display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; padding:16px 0; }
+.bp-node{ font-family:'JetBrains Mono',monospace; text-align:center; background:#171f2b; border:1px solid var(--line); border-radius:8px; padding:10px 12px; min-width:60px; }
+.bp-node .bp-name{ font-size:10px; color:var(--dim); }
+.bp-node .bp-val{ font-size:15px; color:var(--text); font-weight:700; margin-top:2px; }
+.bp-node.param{ border-color:var(--core); }
+.bp-node.param .bp-val{ color:var(--core); }
+.bp-node.loss{ border-color:var(--train); }
+.bp-node.loss .bp-val{ color:var(--train); }
+.bp-arrow2{ color:var(--dim); font-size:13px; }
+.bp-controls{ display:flex; gap:10px; margin-top:6px; flex-wrap:wrap; }
+.bp-detail{ margin-top:16px; font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--dim); line-height:2; background:#0d1219; border:1px solid var(--line); border-radius:8px; padding:12px 14px; min-height:24px; overflow-x:auto; }
+.bp-detail b{ color:var(--infer); }
+.bp-loss-chart{ margin-top:16px; display:flex; align-items:flex-end; gap:3px; height:60px; }
+.bp-bar{ flex:1; background:var(--train); border-radius:2px 2px 0 0; min-width:4px; transition:height .3s; }
+
+@media (max-width:640px){
+  .mh-grid{ grid-template-columns:1fr; }
+}
+
+@media (max-width: 640px){
+  .branch{ flex-direction:column; }
+  .att-wrap{ flex-direction:column; }
+}
+
+/* ===== Part 3: Matrix Space ===== */
+.mtx-wrap{ max-width: 1100px; margin: 0 auto; padding: 40px 18px 100px; }
+.mtx-wrap > .mtx-intro{ text-align:center; max-width:680px; margin: 0 auto 34px; }
+.mtx-wrap > .mtx-intro h2{ font-size:24px; margin-bottom:10px; }
+.mtx-wrap > .mtx-intro p{ color:var(--dim); font-size:13.5px; line-height:1.8; }
+
+.mtx-block{
+  background: var(--panel); border:1px solid var(--line); border-radius:14px;
+  padding: 22px 20px 26px; margin-bottom: 26px;
+}
+.mtx-block h3{ font-size:16px; margin-bottom:4px; }
+.mtx-block .mtx-sub{ font-family:'JetBrains Mono',monospace; font-size:11.5px; color:var(--dim); margin-bottom:16px; }
+
+/* Matrix grid display */
+.mtx-canvas{
+  background:#0d1219; border:1px solid var(--line); border-radius:10px;
+  padding: 18px; overflow-x:auto;
+}
+.mtx-stage{
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap; justify-content:center;
+  min-height: 120px;
+}
+.mtx-mid{ font-family:'JetBrains Mono',monospace; font-size:18px; color:var(--dim); flex-shrink:0; }
+
+/* Matrix cell grid */
+.mtx-grid{
+  display:grid; gap:2px; flex-shrink:0;
+}
+.mtx-cell{
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center;
+  font-family:'JetBrains Mono',monospace; font-size:9.5px; border-radius:3px;
+  transition: background .3s, transform .2s;
+}
+.mtx-cell.label{
+  background:none !important; font-size:10px; color:var(--dim); width:auto; min-width:36px;
+}
+.mtx-cell.head{
+  background:#171f2b; color:var(--dim); font-size:9px;
+}
+.mtx-cell.val{
+  color:#0a0d12; font-weight:700;
+}
+
+.mtx-label-top{
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim);
+  text-align:center; margin-bottom:6px; letter-spacing:.5px;
+}
+.mtx-label-side{
+  writing-mode:vertical-rl; text-orientation:mixed;
+  font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--dim);
+  text-align:center; letter-spacing:.5px;
+}
+
+/* Heatmap color scale */
+.mtx-heatmap-legend{
+  display:flex; align-items:center; gap:8px; margin-top:14px; font-size:11px; color:var(--dim);
+  font-family:'JetBrains Mono',monospace;
+}
+.mtx-heatmap-bar{
+  width:120px; height:10px; border-radius:5px;
+  background: linear-gradient(90deg, #0d1219, #245a53, #4dd6c4, #b586f5, #f2a65a);
+}
+
+/* Matrix controls */
+.mtx-controls{
+  display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; justify-content:center;
+}
+.mtx-step-btn{
+  font-family:'JetBrains Mono',monospace; font-size:12px; background:#171f2b; color:var(--core);
+  border:1px solid var(--core); border-radius:8px; padding:9px 16px; cursor:pointer;
+  transition: all .15s;
+}
+.mtx-step-btn:hover{ background: var(--core); color:#0a0d12; }
+.mtx-step-btn.dim{ border-color:var(--dim); color:var(--dim); }
+.mtx-step-btn.dim:hover{ background:var(--dim); color:#0a0d12; }
+
+.mtx-explain{
+  margin-top:18px; font-size:13.5px; line-height:1.8; color:var(--text);
+  background:#0d1219; border:1px solid var(--line); border-radius:8px; padding:14px 16px;
+  min-height:50px;
+}
+.mtx-explain b{ color:var(--core); }
+.mtx-explain .formula-inline{
+  font-family:'JetBrains Mono',monospace; color:var(--infer); font-size:12.5px;
+}
+.mtx-explain .step-tag{
+  display:inline-block; font-family:'JetBrains Mono',monospace; font-size:10px;
+  background:var(--core); color:#0a0d12; padding:2px 8px; border-radius:4px;
+  margin-right:6px; font-weight:700;
+}
+
+/* Animated highlight pulse */
+@keyframes mtxPulse{
+  0%,100%{ transform:scale(1); }
+  50%{ transform:scale(1.15); box-shadow:0 0 8px 2px var(--core); }
+}
+.mtx-cell.active{ animation: mtxPulse .6s ease; z-index:5; }
+
+/* Multi-head matrix view */
+.mh-mtx-grid{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:14px; }
+.mh-mtx-card{ background:#0d1219; border:1px solid var(--line); border-radius:10px; padding:14px; }
+.mh-mtx-title{ font-family:'JetBrains Mono',monospace; font-size:10.5px; text-align:center; margin-bottom:10px; }
+
+/* MLP flow */
+.mlp-flow{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; justify-content:center; padding:10px 0; }
+.mlp-node{
+  font-family:'JetBrains Mono',monospace; text-align:center; background:#171f2b;
+  border:1px solid var(--line); border-radius:10px; padding:10px 14px; min-width:60px;
+}
+.mlp-node .mlp-name{ font-size:10px; color:var(--dim); }
+.mlp-node .mlp-val{ font-size:13px; color:var(--text); font-weight:700; margin-top:2px; }
+.mlp-node.expand{ border-color:var(--train); }
+.mlp-node.expand .mlp-val{ color:var(--train); }
+.mlp-node.act{ border-color:var(--core); }
+.mlp-node.act .mlp-val{ color:var(--core); }
+
+/* RoPE visualization */
+.rope-canvas{ background:#0d1219; border:1px solid var(--line); border-radius:10px; padding:20px; }
+.rope-controls{ display:flex; gap:12px; align-items:center; margin-bottom:14px; flex-wrap:wrap; }
+.rope-slider{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--dim); font-family:'JetBrains Mono',monospace; }
+.rope-slider input[type=range]{ width:140px; accent-color:var(--core); }
+
+/* Training timeline */
+.train-timeline{
+  display:flex; flex-direction:column; gap:0; position:relative;
+}
+.train-stage{
+  display:flex; gap:16px; padding:18px 0; border-bottom:1px solid var(--line);
+  cursor:pointer; transition: all .15s;
+}
+.train-stage:last-child{ border-bottom:none; }
+.train-stage:hover{ background:rgba(255,255,255,.02); }
+.train-stage .ts-num{
+  font-family:'JetBrains Mono',monospace; font-size:22px; font-weight:700;
+  color:var(--dim); width:40px; flex-shrink:0; text-align:center;
+}
+.train-stage.active .ts-num{ color:var(--train); }
+.train-stage .ts-body{ flex:1; }
+.train-stage .ts-title{ font-size:15px; font-weight:700; margin-bottom:4px; }
+.train-stage .ts-desc{ font-size:13px; color:var(--dim); line-height:1.7; }
+.train-stage .ts-tag{
+  display:inline-block; font-family:'JetBrains Mono',monospace; font-size:10px;
+  padding:2px 8px; border-radius:4px; margin-right:6px; margin-top:4px;
+}
+.train-detail{
+  background:#0d1219; border:1px solid var(--line); border-radius:10px;
+  padding:16px 18px; margin-top:6px; font-size:13.5px; line-height:1.8; color:var(--text);
+  display:none;
+}
+.train-detail.open{ display:block; }
+.train-detail h4{
+  font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--train);
+  letter-spacing:1px; text-transform:uppercase; margin: 12px 0 6px;
+}
+.train-detail h4:first-child{ margin-top:0; }
+.train-detail .formula-inline{
+  font-family:'JetBrains Mono',monospace; color:var(--infer); font-size:12.5px;
+}
+
+/* KV Cache visual */
+.kvcache-flow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:center; padding:14px 0; }
+.kvcache-step{
+  font-family:'JetBrains Mono',monospace; font-size:11px; background:#171f2b;
+  border:1px solid var(--line); border-radius:8px; padding:10px 12px; text-align:center;
+  transition: all .2s; min-width:70px;
+}
+.kvcache-step.cached{ border-color:var(--infer); color:var(--infer); box-shadow:0 0 8px -2px var(--infer); }
+.kvcache-step.new{ border-color:var(--train); color:var(--train); box-shadow:0 0 8px -2px var(--train); }
+
+/* LR schedule chart */
+.lr-chart-wrap{ margin-top:16px; }
+.lr-chart{ display:flex; align-items:flex-end; gap:2px; height:100px; padding:10px; background:#0d1219; border:1px solid var(--line); border-radius:8px; }
+.lr-bar{ flex:1; background:var(--train); border-radius:2px 2px 0 0; min-width:3px; transition:height .3s; opacity:.8; }
+.lr-bar.warmup{ background:var(--infer); }
+
+/* Tokenizer BPE */
+.bpe-steps{ display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+.bpe-row{
+  display:flex; align-items:center; gap:8px; font-family:'JetBrains Mono',monospace; font-size:12px;
+  background:#0d1219; border:1px solid var(--line); border-radius:8px; padding:10px 14px;
+}
+.bpe-tok{
+  display:inline-block; padding:4px 8px; border-radius:4px; border:1px solid var(--line);
+  background:#171f2b; font-size:11px;
+}
+.bpe-tok.merged{ border-color:var(--core); color:var(--core); box-shadow:0 0 6px -2px var(--core); }
+.bpe-arrow{ color:var(--dim); }
+
+@media (max-width:640px){
+  .mh-mtx-grid{ grid-template-columns:1fr; }
+  .mtx-cell{ width:26px; height:26px; font-size:8px; }
+}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">LLM ANATOMY LAB</div>
+    <h1>大模型解剖室</h1>
+    <p>点击任意模块，看它到底在做什么、为什么需要它</p>
+  </header>
+
+  <div class="mode-toggle">
+    <button data-mode="infer" class="active">▶ 推理模式：看一个词怎么被生成</button>
+    <button data-mode="train">⟲ 训练模式：看模型怎么学会说话</button>
+  </div>
+  <div class="hint" id="hint">当前信号：输入文本 → 逐层处理 → 预测下一个词</div>
+
+  <div class="diagram" id="diagram">
+
+    <div class="node" data-id="input"><div class="zh">输入文本</div><div class="en">Raw Text</div></div>
+    <div class="connector flow"></div>
+
+    <div class="node" data-id="token"><div class="zh">分词 Token</div><div class="en">Tokenization</div></div>
+    <div class="connector flow"></div>
+
+    <div class="node" data-id="embedding"><div class="zh">词嵌入 Embedding</div><div class="en">Token → Vector</div></div>
+    <div class="connector flow"></div>
+
+    <div class="node" data-id="position"><div class="zh">位置编码 Position Encoding</div><div class="en">给向量加"第几个字"的信息</div></div>
+    <div class="connector flow"></div>
+
+    <div class="loopbox">
+      <div class="looplabel">Transformer Block × N（层层堆叠）</div>
+
+      <div class="node" data-id="attention" style="--sel:var(--core)"><div class="zh">自注意力 Self-Attention</div><div class="en">每个词回头看所有词</div></div>
+      <div class="connector flow"></div>
+      <div class="node" data-id="residual1" style="--sel:var(--core)"><div class="zh">残差连接 Residual (+)</div><div class="en">加回原始信号，防止丢失</div></div>
+      <div class="connector flow"></div>
+      <div class="node" data-id="norm1" style="--sel:var(--core)"><div class="zh">层归一化 LayerNorm</div><div class="en">把数值拉回合理范围</div></div>
+      <div class="connector flow"></div>
+      <div class="node" data-id="mlp" style="--sel:var(--core)"><div class="zh">前馈网络 MLP / FFN</div><div class="en">对每个词独立"深加工"</div></div>
+      <div class="connector flow"></div>
+      <div class="node" data-id="norm2" style="--sel:var(--core)"><div class="zh">残差 + LayerNorm（第二次）</div><div class="en">再稳定一次，送入下一层</div></div>
+    </div>
+
+    <div class="connector flow"></div>
+
+    <div class="node" data-id="logits"><div class="zh">输出 Logits</div><div class="en">对词表里每个词打分</div></div>
+    <div class="connector flow"></div>
+
+    <div class="node" data-id="softmax"><div class="zh">Softmax</div><div class="en">分数 → 概率分布</div></div>
+    <div class="connector flow"></div>
+
+    <div class="node" data-id="next"><div class="zh">采样出下一个 Token</div><div class="en">拼回输入，循环生成</div></div>
+
+    <div id="trainExtra" style="display:none; width:100%;">
+      <div class="connector flow train"></div>
+      <div class="node" data-id="loss" style="--sel:var(--train)"><div class="zh">损失函数 Loss</div><div class="en">对比预测 vs 正确答案</div></div>
+      <div class="connector flow train"></div>
+      <div class="node" data-id="backprop" style="--sel:var(--train)"><div class="zh">反向传播 Backpropagation</div><div class="en">把误差"倒推"回每一层</div></div>
+      <div class="connector flow train"></div>
+      <div class="node" data-id="optimizer" style="--sel:var(--train)"><div class="zh">优化器 Optimizer</div><div class="en">按误差微调所有参数</div></div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section-divider"><div class="line"></div><span>PART 2 · 钻进向量空间</span><div class="line"></div></div>
+
+<div class="vwrap">
+  <div class="vintro">
+    <h2>参数不是玄学，是几何</h2>
+    <p>前面每个模块内部处理的都是向量——一串几百到上万维的数字。这里抓住三件真实发生的事：<b style="color:var(--text)">意义是位置</b>、<b style="color:var(--text)">注意力是方向对齐</b>、<b style="color:var(--text)">每一层是微调，不是重写</b>。</p>
+    <div class="caveat">⚠ 诚实说明：真实模型的向量有几百到上万维，下面压缩成了二维示意图才能画出来。点之间的聚类关系、类比向量的平行结构，是真实embedding会有的性质，但具体坐标是我手工设计用来教学的，不是从任何真实模型权重里提取的。Attention部分不一样——那里的注意力权重是真实用 softmax(QKᵀ/√d) 公式，对这些示意向量当场算出来的，公式是真的，只是输入向量被简化了。</div>
+  </div>
+
+  <div class="vblock">
+    <h3>① 语义地图：意义即位置</h3>
+    <div class="vsub">Semantic Space · 点击任意两个词，看它们之间的"方向"</div>
+    <div class="legend">
+      <span><i style="background:#b586f5"></i>人物/身份</span>
+      <span><i style="background:#7fd88f"></i>动物</span>
+      <span><i style="background:#6ec2f2"></i>国家/首都</span>
+      <span><i style="background:#f27ab0"></i>情绪</span>
+      <span><i style="background:#f5d76a"></i>科技</span>
+    </div>
+    <div class="space-map-wrap">
+      <svg id="spaceMap" viewBox="0 0 600 460" width="600" height="460"></svg>
+      <div class="vec-side">
+        <div class="vec-caption" id="spaceCaption">先点一个词，再点第二个词，我会画出连接它们的"语义方向"。</div>
+        <button class="vbtn" id="analogyBtn">▶ 演示经典公式：国王 − 男人 + 女人 = ?</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="vblock">
+    <h3>② Attention 的真实几何：模型怎么知道"它"指的是什么</h3>
+    <div class="vsub">句子："服务员 端来 咖啡，它 很 烫" · 点一个词，看它把注意力"打"给了谁</div>
+    <div class="att-wrap">
+      <div>
+        <svg id="attMap" viewBox="0 0 300 300" width="300" height="300"></svg>
+        <div class="att-tokens" id="attTokens"></div>
+      </div>
+      <div class="vec-side">
+        <div class="vec-caption" id="attCaption"></div>
+        <table class="att-table" id="attTable"></table>
+      </div>
+    </div>
+    <div class="footnote">简化说明：这里让每个词的 Query 向量和 Key 向量用了同一个位置来演示。真实模型里 Q 和 K 是用两个不同的权重矩阵，从同一个输入向量分别投影出来的两个方向，原理相同，但数值不会完全重合。</div>
+
+    <div class="mh-section">
+      <h4 class="mh-title">多头版本：3个头同时在看，各有分工</h4>
+      <p class="mh-desc">真实模型不会只算一次Attention，而是并行算好几十次，每次用不同的Wq/Wk/Wv。下面是3个头对同一个Query"它"的真实计算结果（同样是现算的softmax，只是每个头用了不同的Q/K方向）：</p>
+      <div class="mh-grid" id="mhGrid"></div>
+      <p class="footnote">3个头的输出会被拼接（concat）成一个更长的向量，再乘一个输出投影矩阵 Wₒ 压缩回原维度——模型同时拿到了"指代对象""序列位置""谓语属性"三种视角的信息，这是单一个头做不到的。真实模型通常有几十个头，这里只演示3个讲清楚原理。</p>
+    </div>
+  </div>
+
+  <div class="vblock">
+    <h3>③ 残差流：处理不是"改写"，是"层层加注"</h3>
+    <div class="vsub">跟踪"它"这个token的向量，走过 Transformer 每一层发生了什么</div>
+    <div class="resid-strip">
+      <div class="resid-stop"><div class="resid-dot"></div><div class="resid-label"><b>Layer 0</b>刚查表得到的"它"，还不知道指代什么</div></div>
+      <div class="resid-arrow"></div>
+      <div class="resid-stop"><div class="resid-dot"></div><div class="resid-label"><b>Layer 1</b>加入"服务员/端来"的语法结构线索</div></div>
+      <div class="resid-arrow"></div>
+      <div class="resid-stop"><div class="resid-dot"></div><div class="resid-label"><b>Layer 2</b>方向开始向"名词性代词"靠拢</div></div>
+      <div class="resid-arrow"></div>
+      <div class="resid-stop"><div class="resid-dot" style="box-shadow:0 0 16px 3px var(--core)"></div><div class="resid-label"><b>Layer 3 ★</b>和"咖啡"向量强烈对齐——指代消解完成</div></div>
+      <div class="resid-arrow"></div>
+      <div class="resid-stop"><div class="resid-dot"></div><div class="resid-label"><b>Layer 4</b>继续融合"很烫"带来的谓语信息</div></div>
+      <div class="resid-arrow"></div>
+      <div class="resid-stop"><div class="resid-dot"></div><div class="resid-label"><b>Layer N</b>向量已"知道"自己=滚烫的咖啡，可参与预测</div></div>
+    </div>
+    <p class="footnote">这就是残差连接在真实发生的事：每一层不会把向量推倒重写，只是在原向量上加一个小更新量（Δ）。轨迹是连续漂移，不是随机跳变——早期层学到的信息始终留在向量里，深层只是不断叠加新理解。这也是为什么几十上百层的网络能稳定训练。</p>
+
+    <div class="mh-section">
+      <h4 class="mh-title">用真数字看看："为什么"能稳定训练</h4>
+      <p class="mh-desc">下面对比同一件事：反向传播时梯度经过12层之后还剩多少。两条都是真实用 Math.pow 算出来的：</p>
+      <div id="gradCompare"></div>
+      <p class="footnote">没有残差连接时，梯度必须连续乘过12层，每层假设局部导数在0.75左右（激活函数饱和区很常见），12层后只剩<b style="color:var(--train)" id="gradWithoutPct"></b>——这就是"梯度消失"：深层网络的最前几层几乎学不到东西，因为传到那里的误差信号已经小到可以忽略。有残差连接时，output=x+f(x)，对x求导恒有一条"+1"的恒等路径，不管f'多小，这条路径都不会衰减，12层后至少还保留<b style="color:var(--core)" id="gradWithPct"></b>的梯度强度。这就是ResNet/Transformer能堆到几十上百层而不"学不动"的根本原因。</p>
+    </div>
+  </div>
+
+  <div class="vblock">
+    <h3>④ Dense vs MoE：DeepSeek的FFN层多了什么</h3>
+    <div class="vsub">同样是"前馈网络"这一步，稠密(Dense)模型和MoE模型差在哪</div>
+    <div class="moe-toggle">
+      <button class="moe-btn active" data-arch="dense">Dense（GPT-style）</button>
+      <button class="moe-btn" data-arch="moe">MoE（DeepSeek-style）</button>
+    </div>
+    <div id="denseView" class="arch-view">
+      <div class="moe-row">
+        <div class="moe-token">输入向量 x</div>
+        <div class="moe-arrow">→</div>
+        <div class="expert-box active" style="width:auto; height:auto; padding:16px 26px;">唯一的 MLP<br><span style="font-size:10px; font-weight:400;">100%参数都参与这个token的计算</span></div>
+        <div class="moe-arrow">→</div>
+        <div class="moe-token">输出向量</div>
+      </div>
+    </div>
+    <div id="moeView" class="arch-view" style="display:none;">
+      <div class="moe-row">
+        <div class="moe-token">输入向量 x</div>
+        <div class="moe-arrow">→</div>
+        <div class="moe-router">Router<br><span style="font-size:10px; opacity:.75">打分选Top-K</span></div>
+        <div class="moe-arrow">→</div>
+        <div class="expert-grid" id="expertGrid"></div>
+        <div class="moe-arrow">→</div>
+        <div class="moe-token">加权求和</div>
+        <div class="moe-arrow">→</div>
+        <div class="moe-token">输出向量</div>
+      </div>
+      <button class="vbtn" id="rerouteBtn">🔀 换一个token，重新路由</button>
+    </div>
+    <p class="footnote" id="archFootnote">DeepSeek-V3总参数671B，但每个token实际只激活约37B参数（约1/18）——这就是它能"又大又便宜"的原因：总容量靠海量专家撑起来，但每次推理只唤醒其中一小部分，算力开销接近一个小得多的稠密模型。DeepSeekMoE架构相比早期MoE方案还做了两件事：把专家切得更细（fine-grained，用更多更小的专家换取更精细的分工），以及固定留一个"共享专家"处理所有token都用得到的通用模式，让其余专家能更纯粹地各自专精。V3还引入了"无辅助损失"的负载均衡策略，取代早期需要额外loss项强迫专家雨露均沾的做法。</p>
+  </div>
+
+  <div class="vblock">
+    <h3>⑤ 试试你自己的句子</h3>
+    <div class="vsub">输入任意一句话，实时看模型可能怎么分配注意力</div>
+    <div class="own-input-row">
+      <input type="text" id="ownSentence" class="own-input" placeholder="例如：小明把书放在桌子上，因为它太重了" value="小明把书放在桌子上，因为它太重了">
+      <button class="vbtn" id="ownAnalyzeBtn" style="margin-top:0;">分析</button>
+    </div>
+    <div id="ownResult" class="own-result"></div>
+    <div class="footnote">⚠ 诚实说明：这里没有真实模型权重可以现场跑，所以点"分析"后是用<b>本地启发式算法</b>根据语言学线索（词性、位置距离、指代关系、修饰关系）估算一个合理的注意力分布，本质是"模拟注意力机制该有的样子"，不是从任何真实 Transformer 内部提取出来的权重。上面②的"服务员端来咖啡"例子才是真实公式现算的。算法规则：代词优先关注前面的名词、形容词关注修饰的名词、动词关注主宾语、位置越近分数越高——和真实注意力学到的模式高度一致。</div>
+  </div>
+
+  <div class="vblock">
+    <h3>⑥ 反向传播实况：一个真实但极简的例子</h3>
+    <div class="vsub">这次不是示意——下面每个数字都是当场用链式法则真实算出来的</div>
+    <div class="bp-graph" id="bpGraph"></div>
+    <div class="bp-controls">
+      <button class="vbtn" id="bpStepBtn">▶ 单步训练（前向 → 反向 → 更新）</button>
+      <button class="vbtn" id="bpResetBtn" style="border-color:var(--dim); color:var(--dim);">↺ 重置</button>
+    </div>
+    <div class="bp-detail" id="bpDetail"></div>
+    <div class="bp-loss-chart" id="bpLossChart"></div>
+    <p class="footnote">这个"网络"只有两个参数w1、w2，任务是学会让y逼近target=20。每点一次"单步训练"，都真实计算：① 前向传播算出预测值和Loss；② 反向传播用链式法则从Loss往回算每个参数的梯度；③ 优化器按梯度的反方向，把参数挪一小步。多点几次能看到Loss真的在下降——这就是训练的全部本质，大模型只是把这个过程重复了万亿次、参数从2个变成了几千亿个，本质上没有任何区别。</p>
+  </div>
+</div>
+
+<div class="section-divider"><div class="line"></div><span>PART 3 · 钻进矩阵空间</span><div class="line"></div></div>
+
+<div class="mtx-wrap">
+  <div class="mtx-intro">
+    <h2>矩阵，才是大模型真正的"工作台"</h2>
+    <p>前面用2D散点理解了"意义是位置"，但模型内部真正在算的不是散点图——是<b style="color:var(--text)">矩阵乘法</b>。这一部分把每一步数据处理还原成矩阵网格：你能看到文本怎么变成矩阵、注意力分数怎么算出来、多头怎么切分、MLP怎么升维降维。每个数字都是真算的。</p>
+  </div>
+
+  <!-- 3.1 Tokenizer BPE -->
+  <div class="mtx-block">
+    <h3>① 分词矩阵化：文本怎么变成数字矩阵</h3>
+    <div class="mtx-sub">BPE 合并过程 → Token ID → One-hot → Embedding 查表</div>
+    <div class="bpe-steps" id="bpeSteps"></div>
+    <div class="mtx-canvas" style="margin-top:16px;">
+      <div class="mtx-label-top">Step 1: Token IDs → One-hot 编码（每个ID变成词表维度的一行，只有对应位置是1）</div>
+      <div class="mtx-stage" id="onehotStage"></div>
+      <div class="mtx-mid">↓</div>
+      <div class="mtx-label-top">Step 2: One-hot × Embedding 矩阵 = 查表得到每个 token 的语义向量</div>
+      <div class="mtx-stage" id="embedLookupStage"></div>
+    </div>
+    <div class="mtx-explain" id="bpeExplain">
+      <span class="step-tag">BPE</span>真实分词器不是按字切，而是用 <b>BPE（Byte-Pair Encoding）</b> 算法：从单个字符开始，反复合并训练语料里出现频率最高的相邻字符对，直到词表填满。这样常见词会成为一个整体 token，罕见词被拆成子词——这就是为什么"_university"可能是一个 token，但"_supercalifragilistic"会被拆成好几块。
+    </div>
+  </div>
+
+  <!-- 3.2 QKV Projection -->
+  <div class="mtx-block">
+    <h3>② QKV 投影：一次矩阵乘法的真相</h3>
+    <div class="mtx-sub">输入矩阵 X × 权重矩阵 Wq/Wk/Wv = Q/K/V 矩阵 · 点"逐步演示"看矩阵相乘过程</div>
+    <div class="mtx-canvas">
+      <div class="mtx-stage" id="qkvStage"></div>
+    </div>
+    <div class="mtx-controls">
+      <button class="mtx-step-btn" id="qkvStepBtn">▶ 逐步演示矩阵相乘</button>
+      <button class="mtx-step-btn dim" id="qkvResetBtn">↺ 重置</button>
+    </div>
+    <div class="mtx-explain" id="qkvExplain">
+      点"逐步演示"看 <b>X × W = Q</b> 的矩阵相乘过程。每个 Q 矩阵的元素，都是 X 的一行和 W 的一列做<b>点积</b>算出来的。真实模型里 Wq/Wk/Wv 是三个不同的权重矩阵，训练过程中各自学会了不同的"投影方向"——Q 学会"我在找什么"，K 学会"我能提供什么"，V 学会"如果被选中，该贡献什么"。
+    </div>
+  </div>
+
+  <!-- 3.3 Attention Heatmap -->
+  <div class="mtx-block">
+    <h3>③ 注意力热力图：QKᵀ 矩阵长什么样</h3>
+    <div class="mtx-sub">句子："服务员 端来 咖啡，它 很 烫" · 热力图每个格子 = Query 对 Key 的注意力分数</div>
+    <div class="mtx-canvas">
+      <div class="mtx-stage" id="attHeatStage" style="flex-direction:column; gap:20px;"></div>
+      <div class="mtx-heatmap-legend">
+        <span>低</span>
+        <div class="mtx-heatmap-bar"></div>
+        <span>高</span>
+        <span style="margin-left:12px;">颜色越亮 = 注意力越强</span>
+      </div>
+    </div>
+    <div class="mtx-controls">
+      <button class="mtx-step-btn" id="attHeatStepBtn">▶ 逐步演示：QKᵀ → ÷√d → Softmax → ×V</button>
+    </div>
+    <div class="mtx-explain" id="attHeatExplain">
+      这是 Attention 的核心四步：<span class="formula-inline">A = softmax(QKᵀ/√d) × V</span>。热力图里每一行是一个 Query 词，每一列是一个 Key 词，格子的亮暗就是注意力权重。注意"它"那一行——它对"咖啡"的注意力最强，这就是模型学会<b>指代消解</b>的地方。
+    </div>
+  </div>
+
+  <!-- 3.4 Multi-Head Split -->
+  <div class="mtx-block">
+    <h3>④ 多头分块：一个向量怎么被切成多个头</h3>
+    <div class="mtx-sub">d=6 维向量 → 切成 3 个头 × 2 维 · 每个头独立算自己的注意力</div>
+    <div class="mtx-canvas">
+      <div class="mtx-stage" id="mhSplitStage" style="flex-direction:column; gap:18px;"></div>
+    </div>
+    <div class="mtx-explain" id="mhSplitExplain">
+      <span class="step-tag">分头</span>真实模型不会只算一次 Attention。以 d=4096、32 头为例：4096 维向量被均分成 32 段，每段 128 维，每段独立做一次完整的 softmax(QKᵀ/√d)·V。32 个头的输出最后 <b>拼接（concat）</b> 回 4096 维，再乘一个 Wₒ 投影矩阵压缩回原维度。不同头能关注不同维度的关系——语法、指代、情感、因果，各管一摊。
+    </div>
+  </div>
+
+  <!-- 3.5 MLP Matrix Flow -->
+  <div class="mtx-block">
+    <h3>⑤ MLP 矩阵流：升维 → 激活 → 降维</h3>
+    <div class="mtx-sub">d → 4d → d · 这是模型"记忆知识"的主要容量所在</div>
+    <div class="mtx-canvas">
+      <div class="mlp-flow" id="mlpFlowStage"></div>
+    </div>
+    <div class="mtx-controls">
+      <button class="mtx-step-btn" id="mlpStepBtn">▶ 逐步演示 SwiGLU 计算</button>
+    </div>
+    <div class="mtx-explain" id="mlpExplain">
+      MLP 是两步矩阵乘法夹一个激活函数：<span class="formula-inline">FFN(x) = (SwiGLU(x·W₁) ) · W₂</span>。第一步 W₁ 把向量从 d 维<b>升到 4d 维</b>（比如 4096→16384），在更高维的空间里做非线性激活，第二步 W₂ 再<b>降回 d 维</b>。升维的意义是：高维空间里更容易把不同的概念"分开放"，再通过激活函数筛选出有用的组合。大模型大部分参数都堆在这两个矩阵里。
+    </div>
+  </div>
+
+  <!-- 3.6 RoPE -->
+  <div class="mtx-block">
+    <h3>⑥ RoPE 旋转编码：位置信息怎么"转"进向量</h3>
+    <div class="mtx-sub">拖动滑块看不同位置的 Q/K 向量被旋转了多少角度</div>
+    <div class="rope-canvas">
+      <div class="rope-controls">
+        <div class="rope-slider">
+          <span>位置 pos:</span>
+          <input type="range" id="ropePosSlider" min="0" max="15" value="3" step="1">
+          <span id="ropePosVal">3</span>
+        </div>
+        <div class="rope-slider">
+          <span>维度对 dim:</span>
+          <input type="range" id="ropeDimSlider" min="0" max="2" value="0" step="1">
+          <span id="ropeDimVal">0</span>
+        </div>
+      </div>
+      <svg id="ropeSvg" viewBox="0 0 500 320" width="500" height="320" style="max-width:100%;"></svg>
+    </div>
+    <div class="mtx-explain" id="ropeExplain">
+      <span class="step-tag">RoPE</span>RoPE 不是把位置信息"加"到向量上，而是按 token 位置把 Q、K 向量<b>旋转</b>一个角度。位置越远，旋转角度越大。两个 token 相距越远，旋转角度差越大，点积自然衰减——相对位置信息从旋转角度差里自动算出来。拖动滑块：左边的向量是原始 Q，右边是旋转后的 Q，角度 = pos × θ，其中 <span class="formula-inline">θ = 10000^(-2i/d)</span>。低维对旋转快（位置区分精细），高维对旋转慢（能区分很远的位置）。
+    </div>
+  </div>
+</div>
+
+<div class="section-divider"><div class="line"></div><span>PART 4 · 训练全景</span><div class="line"></div></div>
+
+<div class="mtx-wrap">
+  <div class="mtx-intro">
+    <h2>从随机权重到能对话：训练的四个阶段</h2>
+    <p>大模型不是"一次性训练"出来的。从一堆随机数到能和你对话，要经过<b style="color:var(--text)">预训练、监督微调、偏好对齐、推理优化</b>四个阶段，每个阶段的目标、数据、方法完全不同。下面逐个拆开看。</p>
+  </div>
+
+  <!-- 4.1 Training Timeline -->
+  <div class="mtx-block">
+    <h3>① 训练四阶段时间线</h3>
+    <div class="mtx-sub">点击每个阶段展开细节</div>
+    <div class="train-timeline" id="trainTimeline"></div>
+  </div>
+
+  <!-- 4.2 KV Cache -->
+  <div class="mtx-block">
+    <h3>② KV Cache：为什么逐词生成不会越来越慢</h3>
+    <div class="mtx-sub">每生成一个新词，之前的 K/V 不需要重新算——缓存下来直接复用</div>
+    <div class="mtx-canvas">
+      <div class="kvcache-flow" id="kvcacheFlow"></div>
+      <div class="mtx-controls">
+        <button class="mtx-step-btn" id="kvcacheStepBtn">▶ 生成下一个词</button>
+        <button class="mtx-step-btn dim" id="kvcacheResetBtn">↺ 重置</button>
+      </div>
+    </div>
+    <div class="mtx-explain" id="kvcacheExplain">
+      没有KV Cache时，生成第 N 个词需要重新计算前面所有词的 K 和 V，复杂度是 O(N²)。有了Cache：之前算过的 K/V 直接从缓存读取，每一步只需算<b>新词一个</b>的 Q/K/V。这就是为什么你看到 ChatGPT 前几个词出来得慢、后面越来越快——前面在填充 Cache，后面只增量计算。<b>但代价是</b>：长对话的 Cache 会吃掉大量显存，这也是长上下文模型最难优化的工程问题之一。
+    </div>
+  </div>
+
+  <!-- 4.3 LR Schedule -->
+  <div class="mtx-block">
+    <h3>③ 学习率调度：训练过程的"油门曲线"</h3>
+    <div class="mtx-sub">Warmup → Cosine Decay · 学习率不是恒定的，而是先升后降</div>
+    <div class="lr-chart-wrap">
+      <div class="lr-chart" id="lrChart"></div>
+      <div class="mtx-heatmap-legend" style="margin-top:10px;">
+        <span style="color:var(--infer);">■ Warmup 阶段</span>
+        <span style="color:var(--train); margin-left:16px;">■ Cosine 衰减阶段</span>
+      </div>
+    </div>
+    <div class="mtx-explain" id="lrExplain">
+      <span class="step-tag">调度</span>训练不是一路全速前进。前 <b>~2% 步数</b>做 Warmup：学习率从 0 线性升到峰值（比如 3e-4），让模型先用小步试探、避免一开始就大幅破坏随机初始化的权重。之后用 <b>Cosine 衰减</b>：按余弦曲线缓慢降到峰值的 ~10%。前期大步快走学大方向，后期小步精调做微调。整个曲线形状对最终模型质量影响很大——太激进会发散，太平缓会学不动。
+    </div>
+  </div>
+
+  <!-- 4.4 GQA -->
+  <div class="mtx-block">
+    <h3>④ GQA：Llama/DeepSeek 都在用的注意力省显存术</h3>
+    <div class="mtx-sub">MQA vs GQA vs MHA · Key/Value 头数怎么省</div>
+    <div class="kvcache-flow" id="gqaFlow" style="flex-direction:column; gap:16px; padding:16px 0;"></div>
+    <div class="mtx-explain" id="gqaExplain">
+      <span class="step-tag">GQA</span><b>MHA</b>（标准多头）：32 个 Q 头 × 32 个 K/V 头，最灵活但 KV Cache 最大。<b>MQA</b>（多查询）：32 个 Q 头 × 1 个 K/V 头，KV Cache 直接缩小 32 倍，但质量下降明显。<b>GQA</b>（分组查询）：折中方案——32 个 Q 头分成比如 8 组，每组共享 1 个 K/V 头。KV Cache 缩小 4 倍，质量几乎不掉。Llama-3（8组）、DeepSeek-V3 都用 GQA，这是长上下文能做起来的关键工程优化之一。
+    </div>
+  </div>
+</div>
+
+<div class="overlay" id="overlay"></div>
+<div class="panel" id="panel">
+  <button class="close" id="closeBtn">✕</button>
+  <h2 id="pTitle"></h2>
+  <div class="sub" id="pSub"></div>
+  <section><h3>人话说明</h3><p id="pPlain"></p></section>
+  <section><h3>类比</h3><p id="pAnalogy"></p></section>
+  <section><h3>关键机制</h3><div class="formula" id="pFormula"></div></section>
+  <section><h3>为什么需要它</h3><p id="pWhy"></p></section>
+  <button class="adv-toggle" id="advToggle" style="display:none;">▼ 展开进阶内容（真实工程细节）</button>
+  <div class="adv-content" id="advContent"></div>
+</div>
+
+<script>
+const DATA = {
+  input: {
+    title:"输入文本", sub:"Raw Text",
+    plain:"你打进对话框的那句话，此刻还只是一串人类看得懂、机器看不懂的字符。",
+    analogy:"就像你对着一个只懂数字的会计说话——得先翻译成他能记账的格式。",
+    formula:'"今天天气怎么样" → 尚未处理的原始字符串',
+    why:"这是整个系统唯一的输入起点，后面所有模块都在把这句话逐步变成模型能计算的数字。"
+  },
+  token: {
+    title:"分词 Tokenization", sub:"Text → Token IDs",
+    plain:"把句子切成模型词表里认识的最小单位（可能是一个字、一个词，甚至半个词），再查表换成一串数字编号。",
+    analogy:"像把一段话拆成乐高积木块，每块积木在仓库里都有固定编号，模型只认编号，不认字。",
+    formula:'"今天天气" → [今天, 天气] → [3821, 9017]',
+    why:"神经网络的本质是矩阵运算，只能吃数字，不能直接吃汉字或单词，所以必须先编号。",
+    adv:"<h4>BPE 算法怎么工作的</h4><p>训练分词器时，先把所有文本拆成单个字符，然后统计所有相邻字符对的出现频率，把频率最高的那对合并成一个新 token，重复这个过程直到词表填满。比如语料里'th'出现最多，就先合并't'+'h'→'th'，下一轮可能'th'+'e'→'the'。这样常见词自然变成一个 token，罕见词被拆成子词。</p><h4>不同模型的分词器不一样</h4><p>GPT 系列用 tiktoken（BPE 变体），Llama 用 SentencePiece，DeepSeek 也用 BPE 但词表不同。同一个词在不同模型里的 token 数可能不同——这就是为什么同一句话在不同 API 上的 token 计数和费用不一样。</p><h4>中文为什么特别费 token</h4><p>英文一个常见词通常 1 个 token，但中文一个字可能就要 1-2 个 token（因为词表主要是英文语料训练的）。这就是中文用户觉得大模型 API '贵'的一个重要原因。DeepSeek 和 Qwen 的词表对中文做了专门优化，中文 token 效率比 GPT-4 高不少。</p>"
+  },
+  embedding: {
+    title:"词嵌入 Embedding", sub:"Token ID → Vector",
+    plain:"每个 token 编号会被查一张表，换成一串几百到几千维的浮点数向量。这个向量不是随便生成的，而是训练过程中学出来的，意思相近的词，向量在空间里也靠得近。",
+    analogy:"就像给每个词发一张GPS坐标，含义相似的词住得近（'国王'和'女王'离得近，跟'香蕉'离得远）。",
+    formula:"E = EmbeddingTable[token_id]  （查表，得到一个 d 维向量）",
+    why:"这一步把离散的符号变成了连续的数学空间，模型才能用向量运算去度量'词与词有多像'。",
+    adv:"<h4>真实维度有多大</h4><p>GPT-3是12288维，Llama3-8B是4096维，DeepSeek-V3是7168维——不是随便选的数字，通常要能被头数（head数）整除，方便后面切给多头注意力。</p><h4>权重共享（Weight Tying）</h4><p>很多模型把Embedding矩阵和最后Logits层的'解嵌入'矩阵设成同一份参数：一个是'词→向量'，一个是'向量→词'，本质是同一件事的正反面，共享参数能省下一大块显存和参数量。</p><h4>词表大小的取舍</h4><p>词表越大，同样内容需要的token数越少（推理更省），但Embedding矩阵和Logits层也会跟着变大变慢。目前主流模型词表大约在10万到25万之间。</p>"
+  },
+  position: {
+    title:"位置编码 Position Encoding", sub:"给向量打上顺序标记",
+    plain:"Embedding 本身不带位置信息——'猫追狗'和'狗追猫'的每个词向量是一样的。位置编码给每个位置加上一个独特的数学信号，告诉模型'这是第几个字'。",
+    analogy:"就像给合唱团每个人发一个编号牌，不然指挥没法知道该让谁先唱。",
+    formula:"x = TokenEmbedding + PositionEncoding",
+    why:"Attention 机制本身是'无序'的（一视同仁地看所有词），必须靠位置编码把语序信息补回去，不然模型分不清主谓宾谁先谁后。",
+    adv:"<h4>RoPE：现在主流用的方案</h4><p>DeepSeek、Llama、Qwen现在基本都用RoPE（旋转位置编码），思路和最早Transformer论文里的正弦编码不一样：不是把位置信息'加'到向量上，而是按token的位置把Q、K向量各自'旋转'一个角度。两个token相对距离越远，旋转出的夹角差越大，点积自然衰减——相对位置信息是从旋转角度差里自动算出来的，不需要额外的位置向量。</p><h4>旋转矩阵长什么样</h4><p>对维度 d 里的每一对相邻维度 (x_{2i}, x_{2i+1})，RoPE 施加一个 2×2 旋转矩阵，角度 θ_i = pos × 10000^(-2i/d)。低维对（i小）旋转快，能区分近处位置；高维对（i大）旋转慢，能编码远处位置。整个 d 维向量被拆成 d/2 个独立的旋转对，每个对负责一个'频率'的位置编码——这和原始正弦编码的多频率思想一脉相承。</p><h4>为什么要换掉老方案</h4><p>老式绝对位置编码在训练长度之外容易失效（比如只见过2048长度，推理给8000长度就乱套）。RoPE编码的是相对角度差，外推到更长序列时表现好得多，是长上下文模型能做起来的关键技术之一。</p><h4>长度外推的工程技巧</h4><p>RoPE 本身不能无限外推。实际工程中有 YaRN、NTK-aware scaling 等方案：通过调整 base（默认 10000）或插值，让模型在训练长度之外也能正常工作。DeepSeek 和 Llama-3 都用了这类技巧来支持 128K 甚至更长的上下文。</p>"
+  },
+  attention: {
+    title:"自注意力 Self-Attention", sub:"每个词，看看别的词",
+    plain:"对句子里的每一个词，计算它和句子中所有其他词的'相关程度'，然后按相关程度加权，把有用的信息'汇总'到自己身上。比如'它'这个代词，会重点去看前文那个它指代的名词。",
+    analogy:"像开会时你说话前会环视全场——重点看那几个跟你观点相关的人，忽略在打瞌睡的人，再综合大家的意见调整自己要说的话。",
+    formula:"Attention(Q,K,V) = softmax(QKᵀ / √d) · V",
+    why:"这是Transformer最核心的发明：让模型能直接建立任意两个词之间的联系，无论它们隔多远，这解决了老式RNN'记不住远处信息'的老大难问题。",
+    adv:"<h4>Q/K/V到底怎么算出来的</h4><p>拿到每个词的向量x后，分别乘上三个不同的权重矩阵：Q=x·Wq，K=x·Wk，V=x·Wv。三个矩阵在训练中学出不同的'性格'——Q学会'我在找什么'，K学会'我能提供什么'，V学会'如果被选中，我该贡献什么内容'。</p><h4>为什么要拆成多头（Multi-Head）</h4><p>不会只算一次Attention，而是把向量拆成比如32个更窄的子空间，每个子空间独立算一次Attention（各自有一套Wq/Wk/Wv），最后拼接再投影回原维度。不同的头可以专注不同的关系——有的头抓语法结构，有的头抓指代关系，有的头抓长距离的因果逻辑。</p><h4>为什么要除以√d</h4><p>向量维度d越大，点积QKᵀ的数值会随之线性增长，让Softmax输入的方差过大、梯度变陡峭。除以√d是把点积数值拉回适合Softmax计算的区间。</p><h4>KV Cache：推理时最重要的优化</h4><p>生成第N个词时，前面N-1个词的K和V已经在之前的步骤算过了，不需要重新算——缓存下来直接复用。这就是为什么ChatGPT前几个词出来得慢、后面越来越快：前面在填充Cache，后面只增量计算新词的Q/K/V。但代价是：长对话的Cache会吃掉大量显存，这也是长上下文模型最难优化的工程问题之一。</p><h4>GQA：省显存的关键架构选择</h4><p>标准多头（MHA）每个Q头都有独立的K/V头，Cache最大。Llama-3、DeepSeek-V3用GQA（分组查询）：多个Q头共享一组K/V头，比如32个Q头分成8组，每组共享1个K/V头，Cache直接缩小4倍，质量几乎不掉。极端情况是MQA（所有Q头共享1个K/V头），Cache最小但质量下降明显。GQA是质量和效率的甜蜜点。</p><h4>注意力掩码（Masking）</h4><p>生成式模型在训练时用的是'因果掩码'（Causal Mask）：每个词只能看到自己和之前的词，看不到未来的词。这是一个下三角矩阵，把注意力矩阵的上三角部分设为负无穷，Softmax后变成0。这就是模型能'自回归'生成文本的基础——永远只从过去的信息预测未来。</p>"
+  },
+  residual1: {
+    title:"残差连接 Residual Connection", sub:"x + f(x)",
+    plain:"把模块处理前的原始输入，直接加到处理后的输出上，而不是完全替换掉。",
+    analogy:"像开会讨论方案时，不是把你原来的想法全部推翻重写，而是在原方案上做批注、加建议——原始信息永远留了一份底稿。",
+    formula:"output = x + Attention(x)",
+    why:"网络越叠越深，信息和梯度很容易在传递中衰减甚至消失。残差连接相当于开了一条'信息高速公路'，让原始信号能直达深层，训练几十上百层的网络才成为可能。"
+  },
+  norm1: {
+    title:"层归一化 LayerNorm", sub:"稳定数值分布",
+    plain:"把每一层输出的数值重新缩放，让它们的均值、方差保持在一个稳定的范围内，不要忽大忽小。",
+    analogy:"像给每一道菜出锅前都统一调一次咸淡，不管前面厨师手轻手重，端出来的味道都在合理区间。",
+    formula:"y = (x - mean(x)) / std(x) · γ + β",
+    why:"没有这一步，深层网络里数值很容易越滚越大或趋于零，导致训练发散或停滞。LayerNorm让训练过程更稳定、收敛更快。",
+    adv:"<h4>Pre-Norm vs Post-Norm</h4><p>原始Transformer论文把LayerNorm放在残差连接之后（Post-Norm：LN(x + Sublayer(x))），但训练深层时容易不稳定。现代模型几乎都改成Pre-Norm：把LayerNorm放在子层之前（x + Sublayer(LN(x))），残差路径上没有任何归一化操作，梯度能更顺畅地直通到底层，训练更稳定。</p><h4>RMSNorm：现在主流的选择</h4><p>DeepSeek、Llama 都用 RMSNorm 替代了原始 LayerNorm。区别：LayerNorm 会先减去均值再除以标准差，而 RMSNorm 只除以 RMS（均方根），不减均值。数学上更简单、计算量略小，效果几乎一样。公式：<span class='formula-inline'>y = x / sqrt(mean(x²)) · γ</span>。注意 RMSNorm 没有 β（偏移项），只保留 γ（缩放）。</p><h4>为什么不归一化</h4><p>研究发现 Transformer 里数值的均值偏移不是主要问题，方差不稳定才是。去掉减均值这一步反而让梯度更稳定，同时省掉一个可学习参数。这种'去掉不必要操作'的简化是现代大模型架构设计的一个常见思路。</p>"
+  },
+  mlp: {
+    title:"前馈网络 MLP / FFN", sub:"逐词的'深加工'车间",
+    plain:"Attention负责'词与词之间交流信息'，MLP则负责对每个词自己的向量做非线性变换和信息提炼，通常是先放大维度再压缩回来。",
+    analogy:"如果说Attention是开会交换情报，MLP就是散会后每个人自己回工位，把刚听到的信息消化、加工成自己的新想法。",
+    formula:"MLP(x) = W₂ · Activation(W₁x + b₁) + b₂",
+    why:"纯Attention只是加权求和，本质上是线性操作的组合，表达能力有限。MLP引入了非线性和更大的参数量，这是模型'记忆知识、组合概念'的主要容量所在——事实上大模型里大部分参数都在MLP里。",
+    adv:"<h4>真实规模</h4><p>MLP中间层通常是输入维度的4倍左右（也有模型用8/3倍配合门控结构），这也是为什么大模型的参数大部分堆在MLP里，而不是Attention——Attention的Q/K/V/O矩阵相对小，MLP的两个大矩阵才是真正的参数大户。</p><h4>现在主流用SwiGLU而不是ReLU</h4><p>原始Transformer论文的MLP用ReLU/GELU；DeepSeek、Llama这些现代模型普遍换成SwiGLU这种'门控'结构——多算一路门控向量，逐元素相乘控制信息通过比例，效果比朴素激活函数更好，代价是多需要一组权重矩阵。</p><h4>一个有意思的解读</h4><p>不少可解释性研究把MLP层看作一种'键值查找'：第一层权重像在问'输入像不像某个已知模式'，第二层权重决定'如果像，该往输出写入什么'——这是理解大模型'事实记在哪里'的一个重要视角。往下滚可以看Dense vs MoE的对比，DeepSeek这类模型把这里的'一个MLP'换成了'一堆专家MLP+路由'。</p>"
+  },
+  norm2: {
+    title:"第二次 残差 + LayerNorm", sub:"稳定后送入下一层",
+    plain:"MLP的输出同样会做一次残差相加和归一化，和Attention那一次结构完全对称。至此，一个完整的Transformer Block处理完毕，结果会被送进下一个一模一样结构的Block，重复N次（比如32层、96层）。",
+    analogy:"像流水线上完全相同的N道工序，每道工序都在前一道的基础上做微调整，而不是推倒重来。",
+    formula:"output = LayerNorm(x + MLP(x))",
+    why:"每一层都在原有理解的基础上做一次'精修'，层数越多，模型能捕捉的抽象层次越高——浅层学语法结构，深层学语义和逻辑关系。"
+  },
+  logits: {
+    title:"输出 Logits", sub:"对词表打分",
+    plain:"经过所有Transformer层之后，最后一个词位置的向量会被投影回词表大小（可能几万到十几万维），每一维是一个原始分数，代表'下一个词是它的可能性有多大'，但这时还不是概率。",
+    analogy:"像评委给每个选手打出一个原始分数，分数越高越被看好，但还没换算成百分比。",
+    formula:"logits = h · Wᵀ_vocab   （维度 = 词表大小）",
+    why:"这一步把模型内部的'理解'重新映射回人类词表空间，是从'向量世界'回到'语言世界'的关键转换。"
+  },
+  softmax: {
+    title:"Softmax", sub:"分数 → 概率",
+    plain:"把logits这一堆原始分数，转换成一个总和为1的概率分布，分数越高的词概率越大。",
+    analogy:"就像把评委的原始打分，换算成百分比得票率，方便大家理解'谁的胜算有多大'。",
+    formula:"P(word_i) = e^(logit_i) / Σ e^(logit_j)",
+    why:"有了概率分布，才能进行'采样'——决定到底选哪个词。也正是这里可以调温度（temperature）参数，控制输出是更保守还是更有创意。"
+  },
+  next: {
+    title:"采样下一个 Token", sub:"生成 → 拼接 → 循环",
+    plain:"根据Softmax给出的概率分布，选出一个词（可能直接选概率最高的，也可能按概率随机采样增加多样性），把它拼接到已有文本后面，然后把新的、更长的句子重新送回最开头，再走一遍整个流程，直到生成结束符或达到长度上限。",
+    analogy:"像接龙游戏，每次只说一个字，但每说一个字之前都要把前面所有人说过的话重新在脑子里过一遍。",
+    formula:"input = input + next_token → 重新输入模型",
+    why:"这解释了为什么大模型是'逐词蹦出来'的，也解释了为什么句子越长、生成一个新词就越慢——因为每一步都要重新处理全部上下文。"
+  },
+  loss: {
+    title:"损失函数 Loss", sub:"预测和标准答案差多远",
+    plain:"训练时，我们其实是知道'正确答案'的（下一个真实出现的词是什么）。Loss函数衡量模型预测的概率分布，和真实答案之间差了多少，差得越多，Loss值越大。",
+    analogy:"像考试判卷——不是简单对错，而是'你有多大把握选对了'也算分：如果你给正确答案的概率越高，扣分越少。",
+    formula:"Loss = -log(P(正确的下一个词))   （交叉熵）",
+    why:"没有一个可量化的'差距指标'，模型就无从知道自己错在哪、错多少，训练也就无从谈起。",
+    adv:"<h4>不同训练阶段用不同的Loss</h4><p><b>预训练</b>：标准的下一词预测交叉熵 Loss，对所有 token 位置都算。 <b>SFT</b>：只在'回答'部分算 Loss，'指令'部分不算——模型学的是'该怎么回答'而不是'指令后面通常跟什么'。 <b>RLHF</b>：用奖励模型的分数做强化学习，Loss 变成了最大化奖励 + KL 散度惩罚（防止模型为了刷分而跑偏）。 <b>DPO</b>：直接用偏好对（好回答 vs 差回答）算一个对比 Loss，不需要单独的奖励模型。</p><h4>Z-loss：DeepSeek 的额外稳定手段</h4><p>DeepSeek-V2/V3 在训练时额外加了一个辅助 Z-loss：鼓励 Softmax 的输入 logits 保持在合理范围内，防止数值爆炸。这种小技巧对大规模训练的稳定性很重要——万亿参数的模型一旦发散，恢复成本极高。</p>"
+  },
+  backprop: {
+    title:"反向传播 Backpropagation", sub:"把'错在哪'传回每一层",
+    plain:"从Loss出发，沿着神经网络的计算路径反向逐层计算：每一个参数，如果稍微调整一点点，会让Loss变大还是变小、变化多少（也就是'梯度'）。这个过程会一路传回到最开始的Embedding层。",
+    analogy:"像一场团队项目失败后开复盘会，从最终结果往回追，一层一层追问'这一步该为多少责任负责'，直到追溯到最初的决策。",
+    formula:"∂Loss/∂W_layer_k  （链式法则，逐层往回算梯度）",
+    why:"这是让大模型能从'海量文本'中自动学习规律的数学引擎——没有反向传播，模型的几百亿参数根本无从调整，训练就是空谈。"
+  },
+  optimizer: {
+    title:"优化器 Optimizer", sub:"根据梯度真正去调整参数",
+    plain:"拿到每个参数的梯度后，优化器（比如Adam）决定'具体调整多少、往哪个方向调'，通常还会考虑历史更新的惯性、自适应调整每个参数的学习速度，避免一步迈太大或太小。",
+    analogy:"像一个经验丰富的教练，根据你上次的错误程度，决定这次该加大力度纠正还是小幅微调，还会参考你之前几次的表现趋势。",
+    formula:"W_new = W_old − learning_rate · Adam(gradient)",
+    why:"梯度只告诉你'往哪个方向能变好'，但走多远、怎么走才稳，需要优化器的策略——这直接决定了模型训练是稳步收敛还是震荡发散。",
+    adv:"<h4>AdamW：现在主流的优化器</h4><p>Adam 结合了'动量'（历史梯度的指数移动平均，提供惯性）和'自适应学习率'（根据每个参数历史梯度的大小自动调整步长）。AdamW 是 Adam 的修正版：把权重衰减（Weight Decay）从梯度更新中解耦出来，直接作用于参数本身，正则化效果更好。Llama、DeepSeek 都用 AdamW。</p><h4>学习率调度：不是恒定的</h4><p>训练全程学习率不是固定的。通常用 Warmup + Cosine Decay：前 ~2% 步数线性升到峰值（让随机初始化的权重先用小步试探），之后按余弦曲线缓慢降到峰值的 ~10%。前期大步快走学大方向，后期小步精调做微调。曲线形状对最终质量影响极大。</p><h4>梯度裁剪（Gradient Clipping）</h4><p>训练中偶尔会出现异常大的梯度（梯度爆炸），一步就把参数推到很远的地方。梯度裁剪把梯度的整体范数限制在一个上限内，防止这种'一步走太远'。大模型训练几乎都会用这个技巧。</p><h4>分布式训练：一张卡根本放不下</h4><p>大模型的参数和梯度需要拆到多张卡上。数据并行（每张卡算一部分数据，梯度汇总）、张量并行（把一个大矩阵切成多块分给不同卡）、流水线并行（不同层放在不同卡上）三种策略通常组合使用。DeepSeek-V3 训练用了 2048 张 H800 GPU。</p>"
+  }
+};
+
+const panel = document.getElementById('panel');
+const overlay = document.getElementById('overlay');
+
+function openPanel(id){
+  const d = DATA[id];
+  if(!d) return;
+  document.getElementById('pTitle').textContent = d.title;
+  document.getElementById('pSub').textContent = d.sub;
+  document.getElementById('pPlain').textContent = d.plain;
+  document.getElementById('pAnalogy').textContent = d.analogy;
+  document.getElementById('pFormula').textContent = d.formula;
+  document.getElementById('pWhy').textContent = d.why;
+
+  const advToggle = document.getElementById('advToggle');
+  const advContent = document.getElementById('advContent');
+  advContent.classList.remove('open');
+  advToggle.textContent = '▼ 展开进阶内容（真实工程细节）';
+  if(d.adv){
+    advToggle.style.display = 'inline-block';
+    advContent.innerHTML = d.adv;
+  } else {
+    advToggle.style.display = 'none';
+    advContent.innerHTML = '';
+  }
+
+  panel.classList.add('open');
+  overlay.classList.add('open');
+  document.querySelectorAll('.node').forEach(n=>n.classList.remove('selected'));
+  const el = document.querySelector('.node[data-id="'+id+'"]');
+  if(el) el.classList.add('selected');
+}
+document.getElementById('advToggle').addEventListener('click', ()=>{
+  const advContent = document.getElementById('advContent');
+  const advToggle = document.getElementById('advToggle');
+  const isOpen = advContent.classList.toggle('open');
+  advToggle.textContent = isOpen ? '▲ 收起进阶内容' : '▼ 展开进阶内容（真实工程细节）';
+});
+function closePanel(){
+  panel.classList.remove('open');
+  overlay.classList.remove('open');
+  document.querySelectorAll('.node').forEach(n=>n.classList.remove('selected'));
+}
+document.querySelectorAll('.node').forEach(n=>{
+  n.addEventListener('click', ()=> openPanel(n.dataset.id));
+});
+document.getElementById('closeBtn').addEventListener('click', closePanel);
+overlay.addEventListener('click', closePanel);
+
+// mode toggle
+const buttons = document.querySelectorAll('.mode-toggle button');
+const trainExtra = document.getElementById('trainExtra');
+const hint = document.getElementById('hint');
+buttons.forEach(b=>{
+  b.addEventListener('click', ()=>{
+    buttons.forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    if(b.dataset.mode === 'train'){
+      trainExtra.style.display = 'block';
+      hint.textContent = '当前信号：先跑一遍推理 → 对比标准答案算Loss → 反向传播 → 更新参数（如此重复千万次）';
+    } else {
+      trainExtra.style.display = 'none';
+      hint.textContent = '当前信号：输入文本 → 逐层处理 → 预测下一个词';
+    }
+  });
+});
+
+// ============ Part 2: Semantic Space Map ============
+const svgNS = 'http://www.w3.org/2000/svg';
+const SPACE_WORDS = [
+  {id:'man', zh:'男人', x:100, y:300, c:'#b586f5'},
+  {id:'woman', zh:'女人', x:100, y:200, c:'#b586f5'},
+  {id:'king', zh:'国王', x:220, y:300, c:'#b586f5'},
+  {id:'queen', zh:'女王', x:220, y:200, c:'#b586f5'},
+  {id:'prince', zh:'王子', x:272, y:322, c:'#b586f5'},
+  {id:'princess', zh:'公主', x:272, y:222, c:'#b586f5'},
+  {id:'cat', zh:'猫', x:80, y:60, c:'#7fd88f'},
+  {id:'dog', zh:'狗', x:150, y:75, c:'#7fd88f'},
+  {id:'tiger', zh:'老虎', x:105, y:15, c:'#7fd88f'},
+  {id:'elephant', zh:'大象', x:195, y:35, c:'#7fd88f'},
+  {id:'china', zh:'中国', x:430, y:345, c:'#6ec2f2'},
+  {id:'beijing', zh:'北京', x:430, y:265, c:'#6ec2f2'},
+  {id:'france', zh:'法国', x:510, y:325, c:'#6ec2f2'},
+  {id:'paris', zh:'巴黎', x:510, y:245, c:'#6ec2f2'},
+  {id:'japan', zh:'日本', x:470, y:390, c:'#6ec2f2'},
+  {id:'tokyo', zh:'东京', x:470, y:310, c:'#6ec2f2'},
+  {id:'happy', zh:'开心', x:300, y:410, c:'#f27ab0'},
+  {id:'sad', zh:'悲伤', x:345, y:420, c:'#f27ab0'},
+  {id:'angry', zh:'愤怒', x:378, y:440, c:'#f27ab0'},
+  {id:'afraid', zh:'害怕', x:325, y:445, c:'#f27ab0'},
+  {id:'computer', zh:'电脑', x:300, y:70, c:'#f5d76a'},
+  {id:'phone', zh:'手机', x:345, y:55, c:'#f5d76a'},
+  {id:'code', zh:'编程', x:280, y:15, c:'#f5d76a'},
+  {id:'internet', zh:'互联网', x:372, y:92, c:'#f5d76a'}
+];
+const spaceMap = document.getElementById('spaceMap');
+let picked = [];
+
+function renderSpaceMap(){
+  spaceMap.innerHTML = '';
+  const defs = document.createElementNS(svgNS,'defs');
+  defs.innerHTML = '<marker id="arrowhead" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#b586f5"/></marker>';
+  spaceMap.appendChild(defs);
+
+  if(picked.length === 2){
+    const a = SPACE_WORDS.find(w=>w.id===picked[0]);
+    const b = SPACE_WORDS.find(w=>w.id===picked[1]);
+    const line = document.createElementNS(svgNS,'line');
+    line.setAttribute('x1',a.x); line.setAttribute('y1',a.y);
+    line.setAttribute('x2',b.x); line.setAttribute('y2',b.y);
+    line.setAttribute('stroke','#b586f5'); line.setAttribute('stroke-width','2');
+    line.setAttribute('marker-end','url(#arrowhead)');
+    spaceMap.appendChild(line);
+  }
+
+  SPACE_WORDS.forEach(w=>{
+    const g = document.createElementNS(svgNS,'g');
+    g.setAttribute('class','space-point'+(picked.includes(w.id)?' picked':''));
+    const circle = document.createElementNS(svgNS,'circle');
+    circle.setAttribute('cx',w.x); circle.setAttribute('cy',w.y); circle.setAttribute('r',5.5);
+    circle.setAttribute('fill', w.c);
+    const text = document.createElementNS(svgNS,'text');
+    text.setAttribute('x', w.x+9); text.setAttribute('y', w.y+4);
+    text.textContent = w.zh;
+    g.appendChild(circle); g.appendChild(text);
+    g.addEventListener('click', ()=> pickWord(w.id));
+    spaceMap.appendChild(g);
+  });
+}
+
+function pickWord(id){
+  if(picked.includes(id)){ picked = picked.filter(x=>x!==id); }
+  else if(picked.length < 2){ picked.push(id); }
+  else { picked = [id]; }
+  renderSpaceMap();
+  const cap = document.getElementById('spaceCaption');
+  if(picked.length === 2){
+    const a = SPACE_WORDS.find(w=>w.id===picked[0]);
+    const b = SPACE_WORDS.find(w=>w.id===picked[1]);
+    cap.innerHTML = '从 <b>'+a.zh+'</b> 指向 <b>'+b.zh+'</b> 的这条方向，就是这两个词之间的"语义差"。可以对比试试：性别配对（男人→女人 vs 国王→女王）和国家配对（中国→北京 vs 法国→巴黎），它们各自的方向会很接近——这不是巧合，是训练数据里反复出现的语义规律被编码进了向量空间。';
+  } else if(picked.length === 1){
+    const a = SPACE_WORDS.find(w=>w.id===picked[0]);
+    cap.innerHTML = '已选 <b>'+a.zh+'</b>，再点一个词看方向。';
+  } else {
+    cap.textContent = '先点一个词，再点第二个词，我会画出连接它们的"语义方向"。';
+  }
+}
+renderSpaceMap();
+
+document.getElementById('analogyBtn').addEventListener('click', ()=>{
+  picked = ['king','man','woman'];
+  renderSpaceMap();
+  const king = SPACE_WORDS.find(w=>w.id==='king');
+  const man = SPACE_WORDS.find(w=>w.id==='man');
+  const woman = SPACE_WORDS.find(w=>w.id==='woman');
+  const queen = SPACE_WORDS.find(w=>w.id==='queen');
+  const targetX = king.x - man.x + woman.x;
+  const targetY = king.y - man.y + woman.y;
+
+  const ghost = document.createElementNS(svgNS,'circle');
+  ghost.setAttribute('cx', man.x); ghost.setAttribute('cy', man.y);
+  ghost.setAttribute('r', 7); ghost.setAttribute('fill','#fff');
+  ghost.setAttribute('stroke','#b586f5'); ghost.setAttribute('stroke-width','2');
+  spaceMap.appendChild(ghost);
+
+  const cap = document.getElementById('spaceCaption');
+  cap.innerHTML = '计算 <b>国王 − 男人 + 女人</b>，看这个新向量最后落在哪个词附近……';
+
+  let t = 0;
+  const startX = man.x, startY = man.y;
+  function step(){
+    t += 0.025;
+    if(t >= 1){
+      ghost.setAttribute('cx', targetX); ghost.setAttribute('cy', targetY);
+      cap.innerHTML = '算出来的位置正好落在 <b>女王</b> 的坐标上。<br><br>"国王→女王"和"男人→女人"在这个空间里本来就是同一个方向，所以做向量加减法，等于是在对"性别"这一个语义维度做替换——这正是2013年word2vec那个震惊整个NLP领域的实验。';
+      return;
+    }
+    ghost.setAttribute('cx', startX + (targetX-startX)*t);
+    ghost.setAttribute('cy', startY + (targetY-startY)*t);
+    requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+});
+
+// ============ Part 2: Attention Geometry ============
+const ATT_TOKENS = [
+  {id:'waiter', zh:'服务员', v:[0.3,0.9]},
+  {id:'brought', zh:'端来', v:[-0.7,0.6]},
+  {id:'coffee', zh:'咖啡', v:[0.95,-0.35]},
+  {id:'it', zh:'它', v:[1.0,-0.3]},
+  {id:'very', zh:'很', v:[-0.5,-0.2]},
+  {id:'hot', zh:'烫', v:[0.4,-0.9]}
+];
+const attMap = document.getElementById('attMap');
+const attTokensDiv = document.getElementById('attTokens');
+let currentQuery = 'it';
+
+function dot(a,b){ return a[0]*b[0]+a[1]*b[1]; }
+function toPx(v){ return [150+v[0]*90, 150 - v[1]*90]; }
+
+function computeAttention(qid){
+  const q = ATT_TOKENS.find(t=>t.id===qid).v;
+  const scores = ATT_TOKENS.map(t=> dot(q,t.v)/Math.sqrt(2));
+  const max = Math.max(...scores);
+  const exps = scores.map(s=>Math.exp(s-max));
+  const sum = exps.reduce((a,b)=>a+b,0);
+  return ATT_TOKENS.map((t,i)=>({...t, weight: exps[i]/sum}));
+}
+
+function renderAttMap(){
+  const results = computeAttention(currentQuery);
+  attMap.innerHTML = '';
+  const qv = ATT_TOKENS.find(t=>t.id===currentQuery).v;
+  const [qx,qy] = toPx(qv);
+
+  results.forEach(r=>{
+    if(r.id === currentQuery) return;
+    const [x,y] = toPx(r.v);
+    const line = document.createElementNS(svgNS,'line');
+    line.setAttribute('x1',qx); line.setAttribute('y1',qy);
+    line.setAttribute('x2',x); line.setAttribute('y2',y);
+    line.setAttribute('stroke','#b586f5');
+    line.setAttribute('stroke-width', Math.max(1, r.weight*14));
+    line.setAttribute('stroke-opacity', Math.max(0.15, r.weight*1.6));
+    attMap.appendChild(line);
+  });
+
+  results.forEach(r=>{
+    const [x,y] = toPx(r.v);
+    const g = document.createElementNS(svgNS,'g');
+    const circle = document.createElementNS(svgNS,'circle');
+    circle.setAttribute('cx',x); circle.setAttribute('cy',y);
+    circle.setAttribute('r', r.id===currentQuery ? 8 : 5.5);
+    circle.setAttribute('fill', r.id===currentQuery ? '#0a0d12' : '#b586f5');
+    circle.setAttribute('stroke','#b586f5'); circle.setAttribute('stroke-width', r.id===currentQuery?'2.5':'0');
+    const text = document.createElementNS(svgNS,'text');
+    text.setAttribute('x', x+9); text.setAttribute('y', y+4);
+    text.textContent = r.zh;
+    g.appendChild(circle); g.appendChild(text);
+    attMap.appendChild(g);
+  });
+
+  attTokensDiv.innerHTML = '';
+  ATT_TOKENS.forEach(t=>{
+    const btn = document.createElement('div');
+    btn.className = 'att-tok' + (t.id===currentQuery ? ' query' : '');
+    btn.textContent = t.zh;
+    btn.addEventListener('click', ()=>{ currentQuery = t.id; renderAttMap(); });
+    attTokensDiv.appendChild(btn);
+  });
+
+  const table = document.getElementById('attTable');
+  const sorted = [...results].sort((a,b)=>b.weight-a.weight);
+  table.innerHTML = sorted.map(r=>
+    '<tr><td>'+r.zh+(r.id===currentQuery?' (自己)':'')+'</td><td style="width:50%"><div class="att-bar-bg"><div class="att-bar-fill" style="width:'+(r.weight*100).toFixed(1)+'%"></div></div></td><td style="text-align:right; color:var(--core); font-family:\'JetBrains Mono\',monospace;">'+(r.weight*100).toFixed(1)+'%</td></tr>'
+  ).join('');
+
+  const capQ = ATT_TOKENS.find(t=>t.id===currentQuery).zh;
+  document.getElementById('attCaption').innerHTML = '当前 Query：<b>'+capQ+'</b> —— 下面是对每个词现算出来的真实 softmax(QKᵀ/√d) 权重（点其它词切换 Query）：';
+}
+renderAttMap();
+
+// ============ Part 2 ④: Dense vs MoE ============
+document.querySelectorAll('.moe-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.moe-btn').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const arch = btn.dataset.arch;
+    document.getElementById('denseView').style.display = arch==='dense' ? 'block' : 'none';
+    document.getElementById('moeView').style.display = arch==='moe' ? 'block' : 'none';
+  });
+});
+
+const N_EXPERTS = 8;
+function renderExperts(){
+  const grid = document.getElementById('expertGrid');
+  if(!grid) return;
+  const activeIdx = new Set();
+  while(activeIdx.size < 2){ activeIdx.add(Math.floor(Math.random()*N_EXPERTS)); }
+  grid.innerHTML = '';
+  const shared = document.createElement('div');
+  shared.className = 'expert-box shared';
+  shared.innerHTML = '共享<br>专家';
+  grid.appendChild(shared);
+  for(let i=0;i<N_EXPERTS;i++){
+    const box = document.createElement('div');
+    box.className = 'expert-box' + (activeIdx.has(i) ? ' active' : '');
+    box.textContent = 'E'+(i+1);
+    grid.appendChild(box);
+  }
+}
+renderExperts();
+document.getElementById('rerouteBtn').addEventListener('click', renderExperts);
+
+// ============ Part 2 ⑤: Analyze your own sentence (local heuristic engine) ============
+document.getElementById('ownAnalyzeBtn').addEventListener('click', analyzeOwnSentence);
+document.getElementById('ownSentence').addEventListener('keydown', (e)=>{ if(e.key==='Enter') analyzeOwnSentence(); });
+
+// --- 本地中文分词（简易 BPE 风格） ---
+const _COMMON_BIGRAMS = [
+  '因为','所以','虽然','但是','如果','那么','我们','他们','它们','这个','那个','什么','怎么',
+  '已经','正在','可以','应该','不会','就是','还是','而且','然后','其实','一些','一直','一定',
+  '桌子','椅子','电脑','手机','咖啡','小明','小红','今天','明天','昨天','现在','可能','需要',
+  '端来','放在','拿起','看见','知道','觉得','认为','发现','告诉','回答','开始','结束','学习'
+];
+// 常见三字词
+const _COMMON_TRIGRAMS = [
+  '服务员','小学生','科学家','工程师','设计师','程序员','研究员','中学生','大学生','研究生'
+];
+const _PRONOUNS = ['他','她','它','这','那','其','此','该','我','你','谁','哪'];
+// 单字动词：遇到这些字时不要和后面的字合并
+const _VERB_CHARS = '是有没有说来去做看想给拿放打写吃喝买卖走跑飞听说读写看找用让叫听见学开始结束';
+// 单字副词：遇到这些字时不要和后面的字合并
+const _ADV_CHARS = '很非常太更最也挺还都只就才又已正将刚刚';
+// 连词（双字）
+const _CONJUNCTIONS = ['因为','所以','虽然','但是','如果','那么','而且','然后','其实','或者','并且','因此','不过','然而'];
+const _PUNCT = /[，。、；：？！,.;:?!"'""''（）()【】《》<>\s]/;
+const _IS_PUNCT = ch => _PUNCT.test(ch);
+
+function tokenizeZh(text){
+  const tokens = [];
+  let i = 0;
+  while(i < text.length){
+    const ch = text[i];
+    if(_IS_PUNCT(ch)){ tokens.push(ch); i++; continue; }
+    // 尝试匹配常见三字词
+    const tri = text.substring(i, i+3);
+    if(_COMMON_TRIGRAMS.includes(tri)){ tokens.push(tri); i += 3; continue; }
+    // 尝试匹配常见双字词（含连词）
+    const bi = text.substring(i, i+2);
+    if(_COMMON_BIGRAMS.includes(bi) || _CONJUNCTIONS.includes(bi)){ tokens.push(bi); i += 2; continue; }
+    // 尝试 2-gram
+    if(i + 1 < text.length && !_IS_PUNCT(text[i+1])){
+      const next = text[i+1];
+      // 助词结尾 → 拆开
+      if('的了着过地得'.includes(next)){
+        tokens.push(ch); i++; continue;
+      }
+      // 当前字符是代词/介词 → 单独切出
+      if(_PRONOUNS.includes(ch) || '把被在向对于为以由'.includes(ch)){
+        tokens.push(ch); i++; continue;
+      }
+      // 当前字符是单字动词 → 单独切出（不和后面合并）
+      if(_VERB_CHARS.includes(ch)){
+        tokens.push(ch); i++; continue;
+      }
+      // 当前字符是单字副词 → 单独切出
+      if(_ADV_CHARS.includes(ch)){
+        tokens.push(ch); i++; continue;
+      }
+      // 下一个字符是动词/副词/代词/介词 → 当前字符单独切出
+      if(_VERB_CHARS.includes(next) || _ADV_CHARS.includes(next) || _PRONOUNS.includes(next) || '把被在向对于为以由的了着过地得'.includes(next)){
+        tokens.push(ch); i++; continue;
+      }
+      // 否则尝试双字 token
+      tokens.push(bi); i += 2; continue;
+    }
+    tokens.push(ch); i++;
+  }
+  return tokens;
+}
+
+// --- 词性猜测 ---
+function guessPos(tok){
+  if(_IS_PUNCT(tok)) return 'punct';
+  if(_CONJUNCTIONS.includes(tok)) return 'conj';
+  if(_PRONOUNS.includes(tok) || _PRONOUNS.includes(tok[tok.length-1])) return 'pron';
+  if('的了着过地得'.includes(tok) || (tok.length===1 && '的了着过地得'.includes(tok))) return 'aux';
+  if('把被在向从对于为以由和与跟同及并'.includes(tok) || (tok.length===1 && '把被在向从对于为以由和与跟同及并'.includes(tok))) return 'prep';
+  if('很非常太更最也挺还都只就才又已正将'.includes(tok) || (tok.length===1 && '很非常太更最也挺还都只就才又已正将'.includes(tok))) return 'adv';
+  if(/[0-9]+/.test(tok)) return 'num';
+  // 常见形容词
+  const adjChars = '大小高低长短轻重冷热烫快慢新旧好坏美丑胖瘦远近强弱亮暗甜苦酸辣香软硬干湿深浅粗细';
+  if(tok.length === 1 && adjChars.includes(tok)) return 'adj';
+  if(tok.length === 2 && adjChars.includes(tok[tok.length-1])) return 'adj';
+  // 简单动词检测：以常见动词字结尾
+  const verbChars = '是有没有说来去做看想给拿放打写吃喝买卖走跑飞听说读写看找用让叫';
+  if(tok.length === 1 && verbChars.includes(tok)) return 'verb';
+  if(tok.length === 2 && (verbChars.includes(tok[0]) || verbChars.includes(tok[1]))) return 'verb';
+  return 'noun';
+}
+
+// --- 注意力分数估算 ---
+function estimateAttention(tokens){
+  const n = tokens.length;
+  const pos = tokens.map(guessPos);
+  const matrix = [];
+
+  for(let q = 0; q < n; q++){
+    const scores = new Array(n).fill(0);
+    for(let k = 0; k < n; k++){
+      if(q === k){ scores[k] = 1.5; continue; } // self-attention baseline
+      let s = 0;
+
+      // 1. 位置衰减：距离越远分数越低
+      const dist = Math.abs(q - k);
+      s += Math.exp(-dist * 0.35) * 0.6;
+
+      // 2. 代词 → 前面的名词（指代消解）
+      if(pos[q] === 'pron' && pos[k] === 'noun' && k < q){
+        s += 1.2;
+        // 紧邻前面的名词更可能
+        if(q - k <= 3) s += 0.5;
+      }
+
+      // 3. 代词 → 前面的动词
+      if(pos[q] === 'pron' && pos[k] === 'verb' && k < q){
+        s += 0.4;
+      }
+
+      // 4. 形容词/副词 → 修饰的名词
+      if(pos[q] === 'adv' && pos[k] === 'noun'){
+        const dist2 = Math.abs(q - k);
+        if(dist2 <= 3) s += 0.8;
+      }
+      if(pos[q] === 'adj' && pos[k] === 'noun'){
+        const dist2 = Math.abs(q - k);
+        if(dist2 <= 3) s += 0.9;
+      }
+
+      // 5. 动词 → 主语/宾语（名词）
+      if(pos[q] === 'verb' && pos[k] === 'noun'){
+        s += 0.6;
+      }
+
+      // 6. 助词 → 前面的词
+      if(pos[q] === 'aux' && k === q - 1){
+        s += 1.0;
+      }
+
+      // 7. 介词 → 后面的名词
+      if(pos[q] === 'prep' && pos[k] === 'noun' && k > q){
+        s += 0.7;
+      }
+
+      // 8. 标点 → 几乎不关注其他词
+      if(pos[q] === 'punct'){ s *= 0.1; }
+      if(pos[k] === 'punct'){ s *= 0.3; }
+
+      // 9. 连词作为 Query → 关注前后两个分句的核心词
+      if(pos[q] === 'conj'){
+        // 连词关注前面的名词和动词（前句核心）
+        if((pos[k] === 'noun' || pos[k] === 'verb') && k < q){
+          s += 0.8;
+        }
+        // 连词也关注后面的名词和动词（后句核心）
+        if((pos[k] === 'noun' || pos[k] === 'verb') && k > q){
+          s += 0.8;
+        }
+        // 连词关注后面的代词（如"因为它..."中的"它"）
+        if(pos[k] === 'pron' && k > q){
+          s += 0.6;
+        }
+      }
+
+      // 10. 名词/动词作为 Query → 关注附近的连词（因果关系）
+      if((pos[q] === 'noun' || pos[q] === 'verb' || pos[q] === 'pron') && pos[k] === 'conj'){
+        const dist3 = Math.abs(q - k);
+        if(dist3 <= 4) s += 0.4;
+      }
+
+      // 11. 副词 → 前面的动词/形容词
+      if(pos[q] === 'adv' && (pos[k] === 'verb') && k > q){
+        const dist2 = Math.abs(q - k);
+        if(dist2 <= 2) s += 0.5;
+      }
+
+      scores[k] = s;
+    }
+
+    // Softmax 归一化
+    const maxS = Math.max(...scores);
+    const exps = scores.map(s => Math.exp((s - maxS) * 1.5));
+    const sum = exps.reduce((a,b) => a + b, 0);
+    matrix.push(exps.map(e => e / sum));
+  }
+
+  return matrix;
+}
+
+function tok_isConj(tok){
+  return ['因为','所以','虽然','但是','如果','那么','而且','然后','其实','和','与','跟','及','并'].includes(tok);
+}
+
+// --- 找最佳默认 Query ---
+function findDefaultQuery(tokens, pos){
+  // 优先：代词（最有展示价值，指代消解）
+  for(let i = 0; i < tokens.length; i++){
+    if(pos[i] === 'pron') return i;
+  }
+  // 其次：连词（因果/转折关系）
+  for(let i = 0; i < tokens.length; i++){
+    if(pos[i] === 'conj') return i;
+  }
+  // 其次：助词"的/了/着"
+  for(let i = 0; i < tokens.length; i++){
+    if(pos[i] === 'aux') return i;
+  }
+  // 其次：动词
+  for(let i = 0; i < tokens.length; i++){
+    if(pos[i] === 'verb') return i;
+  }
+  // 兜底：中间的词
+  return Math.floor(tokens.length / 2);
+}
+
+function analyzeOwnSentence(){
+  const input = document.getElementById('ownSentence').value.trim();
+  const resultDiv = document.getElementById('ownResult');
+  if(!input) return;
+  resultDiv.innerHTML = '<div class="own-loading">正在用本地启发式算法分析注意力分布…</div>';
+
+  // 模拟短延时以展示加载效果
+  setTimeout(() => {
+    try{
+      const tokens = tokenizeZh(input);
+      if(tokens.length < 2){
+        resultDiv.innerHTML = '<div class="own-error">句子太短了，至少输入两个字。</div>';
+        return;
+      }
+      if(tokens.length > 20){
+        resultDiv.innerHTML = '<div class="own-error">句子太长（超过 20 个 token），请输入短一点的句子。</div>';
+        return;
+      }
+      const pos = tokens.map(guessPos);
+      const matrix = estimateAttention(tokens);
+      const defaultIdx = findDefaultQuery(tokens, pos);
+      renderOwnResult({
+        tokens,
+        attention_matrix: matrix,
+        default_query_index: defaultIdx,
+        pos
+      });
+    } catch(e){
+      resultDiv.innerHTML = '<div class="own-error">分析出错：'+e.message+'</div>';
+    }
+  }, 200);
+}
+
+function renderOwnResult(parsed){
+  const resultDiv = document.getElementById('ownResult');
+  const tokens = parsed.tokens;
+  const matrix = parsed.attention_matrix;
+  const posList = parsed.pos || tokens.map(()=>'noun');
+  const posLabels = { pron:'代词', noun:'名词', verb:'动词', adj:'形容词', adv:'副词', prep:'介词', aux:'助词', punct:'标点', num:'数词', conj:'连词' };
+  const posColors = { pron:'#b586f5', noun:'#4dd6c4', verb:'#f2a65a', adj:'#6ec2f2', adv:'#e6c07b', prep:'#c89665', aux:'#7a8896', punct:'#555', num:'#d488d4', conj:'#e07b9e' };
+  let qIdx = (typeof parsed.default_query_index === 'number' && parsed.default_query_index < tokens.length) ? parsed.default_query_index : 0;
+
+  resultDiv.innerHTML = '<div class="own-tokens" id="ownTokens"></div><div class="own-caption" id="ownCaption"></div><table class="att-table" id="ownTable"></table><div class="own-heatmap" id="ownHeatmap"></div>';
+
+  function renderAt(idx){
+    qIdx = idx;
+    const tokensDiv = document.getElementById('ownTokens');
+    tokensDiv.innerHTML = '';
+    tokens.forEach((tok, i)=>{
+      const btn = document.createElement('div');
+      const p = posList[i];
+      const pl = posLabels[p] || p;
+      const pc = posColors[p] || '#888';
+      btn.className = 'own-tok' + (i===qIdx ? ' query' : '');
+      btn.innerHTML = '<span class="own-tok-word">'+tok+'</span><span class="own-tok-pos" style="color:'+pc+'; border-color:'+pc+';">'+pl+'</span>';
+      btn.addEventListener('click', ()=> renderAt(i));
+      tokensDiv.appendChild(btn);
+    });
+
+    const weights = matrix[qIdx] || [];
+    const capDiv = document.getElementById('ownCaption');
+    const qPos = posLabels[posList[qIdx]] || '';
+    capDiv.innerHTML = '当前 Query：<b style="color:var(--core)">'+tokens[qIdx]+'</b>（'+qPos+'）—— 点击上方任意 token 切换 Query，看它对其他词的注意力分布';
+
+    const table = document.getElementById('ownTable');
+    const combined = tokens.map((t,i)=>({zh:t, weight:weights[i]||0, idx:i, pos:posLabels[posList[i]]||''})).sort((a,b)=>b.weight-a.weight);
+    table.innerHTML = combined.map(r=>
+      '<tr><td>'+r.zh+(r.idx===qIdx?' <span style="color:var(--dim);font-size:11px">(自己)</span>':'')+'<span style="color:var(--dim);font-size:10px;margin-left:6px">'+r.pos+'</span></td><td style="width:50%"><div class="att-bar-bg"><div class="att-bar-fill" style="width:'+(r.weight*100).toFixed(1)+'%"></div></div></td><td style="text-align:right; color:var(--core); font-family:\'JetBrains Mono\',monospace;">'+(r.weight*100).toFixed(1)+'%</td></tr>'
+    ).join('');
+
+    // 渲染完整热力图
+    const heatDiv = document.getElementById('ownHeatmap');
+    let hh = '<div class="own-heat-title">完整注意力热力图（行=Query, 列=Key, 颜色越亮=注意力越高）</div>';
+    hh += '<div class="own-heat-grid" style="grid-template-columns:auto repeat('+tokens.length+',1fr);">';
+    // 角落
+    hh += '<div class="own-heat-cell corner"></div>';
+    // 列头
+    tokens.forEach((t,i)=>{
+      hh += '<div class="own-heat-cell col-head" title="'+t+'">'+(t.length>2?t.substring(0,2):t)+'</div>';
+    });
+    // 每行
+    for(let r=0; r<tokens.length; r++){
+      const rp = posLabels[posList[r]] || '';
+      hh += '<div class="own-heat-cell row-head" title="'+tokens[r]+'（'+rp+'）">'+(tokens[r].length>2?tokens[r].substring(0,2):tokens[r])+'</div>';
+      const rowWeights = matrix[r] || [];
+      for(let c=0; c<tokens.length; c++){
+        const w = rowWeights[c] || 0;
+        const pct = (w*100).toFixed(1);
+        const isQ = (r===qIdx);
+        const isK = (c===qIdx);
+        const bg = heatColor(w);
+        hh += '<div class="own-heat-cell" style="background:'+bg+'" title="'+tokens[r]+' → '+tokens[c]+': '+pct+'%"></div>';
+      }
+    }
+    hh += '</div>';
+    heatDiv.innerHTML = hh;
+  }
+
+  function heatColor(w){
+    if(w < 0.05) return '#0d1219';
+    if(w < 0.1) return '#1a2a2a';
+    if(w < 0.2) return '#245a53';
+    if(w < 0.35) return('#2d7a6e');
+    if(w < 0.5) return('#4dd6c4');
+    if(w < 0.7) return('#7de0d0');
+    return '#b586f5';
+  }
+
+  renderAt(qIdx);
+}
+
+// ============ Part 2: Multi-head attention (extends block ②) ============
+const MH_HEADS = [
+  { name:'Head 1 · 指代关系', color:'#b586f5', vectors:{
+      waiter:[0.3,0.9], brought:[-0.7,0.6], coffee:[0.95,-0.35], it:[1.0,-0.3], very:[-0.5,-0.2], hot:[0.4,-0.9]
+  }},
+  { name:'Head 2 · 序列位置', color:'#6ec2f2', vectors:{
+      waiter:[0.825,0.565], brought:[0.362,0.932], coffee:[-0.227,0.974], it:[-0.737,0.675], very:[-0.99,0.141], hot:[-0.896,-0.443]
+  }},
+  { name:'Head 3 · 谓语属性', color:'#f2a65a', vectors:{
+      waiter:[0.9,-0.1], brought:[0.8,0.2], coffee:[0.5,0.3], it:[0.2,1.0], very:[0.9,0.4], hot:[0.15,0.95]
+  }}
+];
+const TOKEN_ORDER = [
+  {id:'waiter',zh:'服务员'},{id:'brought',zh:'端来'},{id:'coffee',zh:'咖啡'},
+  {id:'it',zh:'它'},{id:'very',zh:'很'},{id:'hot',zh:'烫'}
+];
+
+function renderMultiHead(){
+  const grid = document.getElementById('mhGrid');
+  if(!grid) return;
+  grid.innerHTML = '';
+  MH_HEADS.forEach(head=>{
+    const qv = head.vectors['it'];
+    const scores = TOKEN_ORDER.map(t=> dot(qv, head.vectors[t.id]) / Math.sqrt(2));
+    const max = Math.max(...scores);
+    const exps = scores.map(s=>Math.exp(s-max));
+    const sum = exps.reduce((a,b)=>a+b,0);
+    const weights = exps.map(e=>e/sum);
+
+    const card = document.createElement('div');
+    card.className = 'mh-head';
+    let rowsHtml = '';
+    TOKEN_ORDER.forEach((t,i)=>{
+      const pct = (weights[i]*100).toFixed(1);
+      rowsHtml += '<div class="mh-row"><div class="mh-label">'+t.zh+(t.id==='it'?'(己)':'')+'</div><div class="mh-bar-bg"><div class="mh-bar-fill" style="width:'+pct+'%; background:'+head.color+'"></div></div><div class="mh-pct">'+pct+'%</div></div>';
+    });
+    card.innerHTML = '<div class="mh-head-title" style="color:'+head.color+'">'+head.name+'</div>' + rowsHtml;
+    grid.appendChild(card);
+  });
+}
+renderMultiHead();
+
+// ============ Part 2: Gradient vanishing vs Residual (extends block ③) ============
+function renderGradCompare(){
+  const el = document.getElementById('gradCompare');
+  if(!el) return;
+  const N = 12;
+  const withoutVals = [];
+  const withVals = [];
+  for(let i=1;i<=N;i++){
+    withoutVals.push(Math.pow(0.75, i));
+    withVals.push(1);
+  }
+  function bars(vals, color){
+    return vals.map(v=>'<div class="grad-bar" style="height:'+(v*100).toFixed(1)+'%; background:'+color+'" title="'+(v*100).toFixed(1)+'%"></div>').join('');
+  }
+  el.innerHTML =
+    '<div class="grad-compare-row"><div class="grad-compare-label">没有残差</div><div class="grad-bars">'+bars(withoutVals,'var(--train)')+'</div></div>'+
+    '<div class="grad-compare-row"><div class="grad-compare-label">有残差</div><div class="grad-bars">'+bars(withVals,'var(--core)')+'</div></div>';
+  const withoutFinal = withoutVals[withoutVals.length-1];
+  document.getElementById('gradWithoutPct').textContent = (withoutFinal*100).toFixed(1)+'%';
+  document.getElementById('gradWithPct').textContent = (withVals[withVals.length-1]*100).toFixed(0)+'%';
+}
+renderGradCompare();
+
+// ============ Part 2 ⑥: Real backprop toy example ============
+let bp = { x:2, target:20, w1:3, w2:1, lr:0.01, history:[] };
+
+function bpForward(state){
+  const h = state.w1 * state.x;
+  const y = state.w2 * h;
+  const loss = Math.pow(y - state.target, 2) / 2;
+  return { h, y, loss };
+}
+
+function renderBPGraph(){
+  const f = bpForward(bp);
+  const graph = document.getElementById('bpGraph');
+  if(!graph) return;
+  graph.innerHTML =
+    '<div class="bp-node"><div class="bp-name">输入 x</div><div class="bp-val">'+bp.x+'</div></div>'+
+    '<div class="bp-arrow2">×</div>'+
+    '<div class="bp-node param"><div class="bp-name">w1</div><div class="bp-val">'+bp.w1.toFixed(3)+'</div></div>'+
+    '<div class="bp-arrow2">=</div>'+
+    '<div class="bp-node"><div class="bp-name">h</div><div class="bp-val">'+f.h.toFixed(3)+'</div></div>'+
+    '<div class="bp-arrow2">×</div>'+
+    '<div class="bp-node param"><div class="bp-name">w2</div><div class="bp-val">'+bp.w2.toFixed(3)+'</div></div>'+
+    '<div class="bp-arrow2">=</div>'+
+    '<div class="bp-node"><div class="bp-name">预测 y</div><div class="bp-val">'+f.y.toFixed(3)+'</div></div>'+
+    '<div class="bp-arrow2">vs</div>'+
+    '<div class="bp-node"><div class="bp-name">目标 target</div><div class="bp-val">'+bp.target+'</div></div>'+
+    '<div class="bp-arrow2">→</div>'+
+    '<div class="bp-node loss"><div class="bp-name">Loss</div><div class="bp-val">'+f.loss.toFixed(3)+'</div></div>';
+}
+
+function renderLossChart(){
+  const chart = document.getElementById('bpLossChart');
+  if(!chart) return;
+  if(bp.history.length === 0){ chart.innerHTML = '<span style="color:var(--dim); font-family:\'JetBrains Mono\',monospace; font-size:11px;">点"单步训练"开始，这里会画出Loss下降曲线</span>'; return; }
+  const maxLoss = Math.max(...bp.history, 0.001);
+  chart.innerHTML = bp.history.map((l,i)=>
+    '<div class="bp-bar" style="height:'+Math.max(3, (l/maxLoss*100))+'%" title="第'+(i+1)+'步: Loss='+l.toFixed(2)+'"></div>'
+  ).join('');
+}
+
+function bpStep(){
+  const f = bpForward(bp);
+  const dLoss_dy = f.y - bp.target;
+  const dLoss_dw2 = dLoss_dy * f.h;
+  const dLoss_dh = dLoss_dy * bp.w2;
+  const dLoss_dw1 = dLoss_dh * bp.x;
+
+  const detail = document.getElementById('bpDetail');
+  detail.innerHTML =
+    '前向：h = w1×x = '+bp.w1.toFixed(3)+'×'+bp.x+' = <b>'+f.h.toFixed(3)+'</b>　|　y = w2×h = '+bp.w2.toFixed(3)+'×'+f.h.toFixed(3)+' = <b>'+f.y.toFixed(3)+'</b>　|　Loss = <b>'+f.loss.toFixed(3)+'</b><br>'+
+    '反向：∂Loss/∂y = y−target = <b>'+dLoss_dy.toFixed(3)+'</b><br>'+
+    '　　　∂Loss/∂w2 = ∂Loss/∂y × h = '+dLoss_dy.toFixed(3)+' × '+f.h.toFixed(3)+' = <b>'+dLoss_dw2.toFixed(3)+'</b><br>'+
+    '　　　∂Loss/∂h = ∂Loss/∂y × w2 = '+dLoss_dy.toFixed(3)+' × '+bp.w2.toFixed(3)+' = <b>'+dLoss_dh.toFixed(3)+'</b><br>'+
+    '　　　∂Loss/∂w1 = ∂Loss/∂h × x = '+dLoss_dh.toFixed(3)+' × '+bp.x+' = <b>'+dLoss_dw1.toFixed(3)+'</b><br>'+
+    '更新：w1 ← w1 − lr×∂Loss/∂w1 = '+bp.w1.toFixed(3)+' − '+bp.lr+'×('+dLoss_dw1.toFixed(3)+') = <b>'+(bp.w1 - bp.lr*dLoss_dw1).toFixed(3)+'</b>　|　w2 ← <b>'+(bp.w2 - bp.lr*dLoss_dw2).toFixed(3)+'</b>';
+
+  bp.w1 = bp.w1 - bp.lr * dLoss_dw1;
+  bp.w2 = bp.w2 - bp.lr * dLoss_dw2;
+  bp.history.push(f.loss);
+  if(bp.history.length > 30) bp.history.shift();
+
+  renderBPGraph();
+  renderLossChart();
+}
+
+function bpReset(){
+  bp = { x:2, target:20, w1:3, w2:1, lr:0.01, history:[] };
+  document.getElementById('bpDetail').innerHTML = '点"单步训练"看前向传播、反向传播、参数更新的真实计算过程。';
+  renderBPGraph();
+  renderLossChart();
+}
+
+document.getElementById('bpStepBtn').addEventListener('click', bpStep);
+document.getElementById('bpResetBtn').addEventListener('click', bpReset);
+bpReset();
+
+// ============ Part 3: Matrix Space ============
+
+// --- Utility: heatmap color mapping ---
+function mtxHeatColor(v, max){
+  if(v === undefined || v === null || isNaN(v)) v = 0;
+  const r = Math.min(1, Math.abs(v) / (max || 1));
+  const stops = [[13,18,25],[28,60,55],[36,90,83],[77,214,196],[181,134,245],[242,166,90]];
+  const idx = r * (stops.length-1);
+  const i = Math.min(Math.floor(idx), stops.length-1);
+  const f = idx - i;
+  const c1 = stops[i] || stops[0], c2 = stops[Math.min(i+1,stops.length-1)];
+  return `rgb(${Math.round(c1[0]+(c2[0]-c1[0])*f)},${Math.round(c1[1]+(c2[1]-c1[1])*f)},${Math.round(c1[2]+(c2[2]-c1[2])*f)})`;
+}
+function mtxTextOn(bg){
+  const m = bg.match(/\d+/g);
+  if(!m) return 'var(--text)';
+  const b = (parseInt(m[0])*299+parseInt(m[1])*587+parseInt(m[2])*114)/1000;
+  return b > 110 ? '#0a0d12' : 'var(--text)';
+}
+
+// --- Utility: render a matrix grid ---
+function mtxGrid(rows, cols, colLabels, rowLabels, cellFn){
+  let html = `<div class="mtx-grid" style="grid-template-columns:${rowLabels?'auto ':''}repeat(${cols},auto);">`;
+  if(colLabels){
+    if(rowLabels) html += `<div class="mtx-cell" style="background:none;"></div>`;
+    colLabels.forEach(cl => html += `<div class="mtx-cell head">${cl}</div>`);
+  }
+  for(let r=0; r<rows; r++){
+    if(rowLabels) html += `<div class="mtx-cell head">${rowLabels[r]}</div>`;
+    for(let c=0; c<cols; c++){
+      const cell = cellFn(r,c);
+      const bg = cell.bg || '#171f2b';
+      html += `<div class="mtx-cell val${cell.active?' active':''}" style="background:${bg}; color:${cell.color||mtxTextOn(bg)};">${cell.text}</div>`;
+    }
+  }
+  return html + `</div>`;
+}
+
+// --- 3.1 BPE Tokenizer ---
+const BPE_STEPS = [
+  { label:'Step 0 · 字符级切分', tokens:['p','l','a','y','i','n','g'], mergeIdx:[] },
+  { label:'Step 1 · 合并频率最高的 "pl"', tokens:['pl','a','y','i','n','g'], mergeIdx:[0] },
+  { label:'Step 2 · 合并 "ay"', tokens:['pl','ay','i','n','g'], mergeIdx:[1] },
+  { label:'Step 3 · 合并 "ing"', tokens:['pl','ay','ing'], mergeIdx:[2] },
+  { label:'Step 4 · 合并 "play"', tokens:['play','ing'], mergeIdx:[0] },
+  { label:'最终 · 查词表得到 Token IDs', tokens:['play','ing'], mergeIdx:[], ids:[842,317] }
+];
+function renderBPE(){
+  const el = document.getElementById('bpeSteps');
+  if(!el) return;
+  el.innerHTML = BPE_STEPS.map(s => {
+    let toks = s.tokens.map((t,j) =>
+      `<span class="bpe-tok${s.mergeIdx.includes(j)?' merged':''}">${t}</span>`
+    ).join('<span class="bpe-arrow">·</span>');
+    let ids = s.ids ? ` <span class="bpe-arrow">→</span> <span style="color:var(--infer); font-weight:700;">IDs: [${s.ids.join(', ')}]</span>` : '';
+    return `<div class="bpe-row"><span style="color:var(--dim); min-width:220px; flex-shrink:0;">${s.label}</span><div style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">${toks}${ids}</div></div>`;
+  }).join('');
+}
+renderBPE();
+
+// --- 3.1b One-hot + Embedding lookup ---
+const VOCAB = 8, EDIM = 4;
+const DEMO_TOKS = [{zh:'play',id:2},{zh:'ing',id:5},{zh:'ball',id:7}];
+const EMBED_TBL = [
+  [0.12,-0.34,0.56,0.78],[-0.45,0.67,-0.89,0.23],[0.91,-0.12,0.34,-0.56],
+  [0.33,0.44,-0.55,0.66],[-0.77,0.88,0.11,-0.22],[0.15,-0.26,0.37,0.48],
+  [-0.61,0.72,-0.83,0.94],[0.25,0.36,-0.47,0.58]
+];
+function renderOneHotEmbed(){
+  const ohEl = document.getElementById('onehotStage');
+  if(!ohEl) return;
+  const vLabels = Array.from({length:VOCAB},(_,i)=>'v'+i);
+  const tLabels = DEMO_TOKS.map(t=>t.zh);
+  ohEl.innerHTML = mtxGrid(DEMO_TOKS.length, VOCAB, vLabels, tLabels, (r,c)=>({
+    text: DEMO_TOKS[r].id===c ? '1' : '0',
+    bg: DEMO_TOKS[r].id===c ? 'var(--core)' : '#171f2b',
+    color: DEMO_TOKS[r].id===c ? '#0a0d12' : 'var(--dim)'
+  }));
+
+  const emEl = document.getElementById('embedLookupStage');
+  if(!emEl) return;
+  const dLabels = ['d0','d1','d2','d3'];
+  const vRowLabels = Array.from({length:VOCAB},(_,i)=>'v'+i);
+  const usedIds = new Set(DEMO_TOKS.map(t=>t.id));
+  const lookupResults = DEMO_TOKS.map(t => EMBED_TBL[t.id]);
+  emEl.innerHTML =
+    `<div>${mtxGrid(VOCAB, EDIM, dLabels, vRowLabels, (r,c)=>({
+      text: EMBED_TBL[r][c].toFixed(2),
+      bg: usedIds.has(r) ? mtxHeatColor(EMBED_TBL[r][c],1) : '#171f2b',
+      color: usedIds.has(r) ? undefined : 'var(--dim)'
+    }))}</div>` +
+    `<div class="mtx-mid">→</div>` +
+    `<div>${mtxGrid(DEMO_TOKS.length, EDIM, dLabels, tLabels, (r,c)=>({
+      text: lookupResults[r][c].toFixed(2),
+      bg: mtxHeatColor(lookupResults[r][c],1)
+    }))}</div>`;
+}
+renderOneHotEmbed();
+
+// --- 3.2 QKV Projection animation ---
+const QKV_X = [
+  [0.91,-0.12,0.34,-0.56],
+  [0.15,-0.26,0.37,0.48],
+  [0.25,0.36,-0.47,0.58]
+];
+const QKV_W = [
+  [0.5,-0.3,0.2,0.8],
+  [-0.4,0.6,-0.1,0.3],
+  [0.7,0.2,-0.5,-0.2],
+  [0.1,-0.8,0.4,0.6]
+];
+const QKV_TOK_LABELS = ['play','ing','ball'];
+const QKV_DIM_LABELS = ['d0','d1','d2','d3'];
+let qkvStep = -1;
+
+function qkvCellDot(row, col){
+  let s = 0;
+  for(let i=0; i<QKV_X[row].length; i++) s += QKV_X[row][i] * QKV_W[i][col];
+  return s;
+}
+function renderQKV(){
+  const el = document.getElementById('qkvStage');
+  if(!el) return;
+  const activeR = qkvStep >= 0 ? Math.floor(qkvStep / 4) : -1;
+  const activeC = qkvStep >= 0 ? qkvStep % 4 : -1;
+
+  // X matrix with row highlight
+  let xHtml = `<div class="mtx-label-top">X (输入 · 3×4)</div>` +
+    mtxGrid(3, 4, QKV_DIM_LABELS, QKV_TOK_LABELS, (r,c)=>({
+      text: QKV_X[r][c].toFixed(2),
+      bg: r === activeR ? 'rgba(77,214,196,0.25)' : '#171f2b'
+    }));
+
+  // W matrix with col highlight
+  let wHtml = `<div class="mtx-label-top">Wq (权重 · 4×4)</div>` +
+    mtxGrid(4, 4, QKV_DIM_LABELS, QKV_DIM_LABELS, (r,c)=>({
+      text: QKV_W[r][c].toFixed(2),
+      bg: c === activeC ? 'rgba(242,166,90,0.25)' : '#171f2b'
+    }));
+
+  // Q result matrix
+  let qHtml = `<div class="mtx-label-top">Q = X × Wq (结果 · 3×4)</div>` +
+    mtxGrid(3, 4, QKV_DIM_LABELS, QKV_TOK_LABELS, (r,c)=>{
+      const computed = r * 4 + c <= qkvStep;
+      const val = qkvCellDot(r,c);
+      return {
+        text: computed ? val.toFixed(2) : '?',
+        bg: computed ? mtxHeatColor(val, 1.5) : '#0d1219',
+        color: computed ? undefined : 'var(--dim)',
+        active: r === activeR && c === activeC
+      };
+    });
+
+  el.innerHTML = xHtml + `<div class="mtx-mid">×</div>` + wHtml + `<div class="mtx-mid">=</div>` + qHtml;
+
+  // Update explanation
+  const exEl = document.getElementById('qkvExplain');
+  if(qkvStep < 0){
+    exEl.innerHTML = `点"逐步演示"看 <b>X × Wq = Q</b> 的矩阵相乘过程。Q 的每个元素 = X 的一行 · Wq 的一列（点积）。真实模型里 Wq/Wk/Wv 是三个不同的权重矩阵，各自学会了不同"投影方向"——Q 学"我在找什么"，K 学"我能提供什么"，V 学"被选中后贡献什么"。`;
+  } else if(qkvStep < 11){
+    const r = activeR, c = activeC;
+    let parts = [];
+    for(let i=0; i<4; i++) parts.push(`${QKV_X[r][i].toFixed(2)}×${QKV_W[i][c].toFixed(2)}`);
+    const val = qkvCellDot(r,c);
+    exEl.innerHTML = `<span class="step-tag">Step ${qkvStep+1}/12</span>计算 Q[${QKV_TOK_LABELS[r]}][${QKV_DIM_LABELS[c]}] = <span class="formula-inline">${parts.join(' + ')}</span> = <b>${val.toFixed(4)}</b><br>这就是 X 的第 ${r+1} 行和 Wq 的第 ${c+1} 列的点积。矩阵乘法的本质：每个结果元素都是一行和一列的"配对打分"。`;
+  } else {
+    exEl.innerHTML = `<span class="step-tag">完成</span>Q 矩阵全部算完。同样地，<b>K = X × Wk</b> 和 <b>V = X × Wv</b> 也是用各自的权重矩阵算出来的——三个矩阵用同一份输入 X，但投影出三种不同"视角"的向量。接下来看这些 Q/K 怎么算出注意力分数。`;
+  }
+}
+renderQKV();
+document.getElementById('qkvStepBtn').addEventListener('click', ()=>{
+  qkvStep++;
+  if(qkvStep > 11) qkvStep = 0;
+  renderQKV();
+});
+document.getElementById('qkvResetBtn').addEventListener('click', ()=>{
+  qkvStep = -1;
+  renderQKV();
+});
+
+// --- 3.3 Attention Heatmap ---
+let attHeatStep = 0; // 0=raw QK^T, 1=/sqrt(d), 2=softmax, 3=final
+const ATT_HEAT_TOKENS = ['服务员','端来','咖啡','它','很','烫'];
+const ATT_HEAT_VECS = [
+  [0.3,0.9],[-0.7,0.6],[0.95,-0.35],[1.0,-0.3],[-0.5,-0.2],[0.4,-0.9]
+];
+function computeAttMatrix(){
+  const n = ATT_HEAT_TOKENS.length;
+  const rawScores = [];
+  for(let i=0; i<n; i++){
+    let row = [];
+    for(let j=0; j<n; j++){
+      let s = 0;
+      for(let d=0; d<2; d++) s += ATT_HEAT_VECS[i][d] * ATT_HEAT_VECS[j][d];
+      row.push(s);
+    }
+    rawScores.push(row);
+  }
+  const scaled = rawScores.map(row => row.map(s => s / Math.sqrt(2)));
+  const softmaxed = scaled.map(row => {
+    const max = Math.max(...row);
+    const exps = row.map(s => Math.exp(s - max));
+    const sum = exps.reduce((a,b)=>a+b, 0);
+    return exps.map(e => e / sum);
+  });
+  return { rawScores, scaled, softmaxed };
+}
+function renderAttHeat(){
+  const el = document.getElementById('attHeatStage');
+  if(!el) return;
+  const { rawScores, scaled, softmaxed } = computeAttMatrix();
+  const n = ATT_HEAT_TOKENS.length;
+  let data, title, maxVal;
+  switch(attHeatStep){
+    case 0: data = rawScores; title = 'Step 1: QKᵀ 原始点积分数'; maxVal = 2; break;
+    case 1: data = scaled; title = 'Step 2: ÷ √d (缩放，防止Softmax梯度消失)'; maxVal = 1.5; break;
+    case 2: data = softmaxed; title = 'Step 3: Softmax(按行归一化 → 概率分布)'; maxVal = 1; break;
+    case 3: data = softmaxed; title = 'Step 4: 最终注意力权重 (= softmax × V)'; maxVal = 1; break;
+  }
+  const html = `<div class="mtx-label-top">${title}</div>` +
+    mtxGrid(n, n, ATT_HEAT_TOKENS, ATT_HEAT_TOKENS, (r,c)=>{
+      const v = data[r][c];
+      return {
+        text: v.toFixed(2),
+        bg: mtxHeatColor(v, maxVal)
+      };
+    });
+  el.innerHTML = html;
+
+  const exEl = document.getElementById('attHeatExplain');
+  const stepTexts = [
+    `<span class="step-tag">Step 1</span><b>QKᵀ</b>：Q 矩阵的每一行 · K 矩阵的每一列 = 点积。点积越大 = 两个词的 Query-Key 方向越对齐 = 注意力越强。但原始分数还没归一化，数值范围不固定。`,
+    `<span class="step-tag">Step 2</span><b>÷ √d</b>：把所有分数除以 √d（这里 d=2，所以除以 √2≈1.41）。原因：维度越大，点积的数值线性增长，会让 Softmax 输入方差过大 → 梯度趋近零。缩放后让数值回到合理区间。`,
+    `<span class="step-tag">Step 3</span><b>Softmax</b>：对每一行（每个 Query 词）独立做 Softmax，把分数变成概率分布——每行加起来 = 1。注意"它"那一行：它对"咖啡"的权重最高，这就是<b>指代消解</b>发生的地方。`,
+    `<span class="step-tag">Step 4</span><b>× V</b>：最终输出 = 注意力权重矩阵 × V 矩阵。每个词的新向量 = 所有词的 V 向量按注意力权重加权求和。"它"的输出向量会主要由"咖啡"的 V 向量决定——它"变成了"咖啡的意思。`
+  ];
+  exEl.innerHTML = stepTexts[attHeatStep];
+}
+renderAttHeat();
+document.getElementById('attHeatStepBtn').addEventListener('click', ()=>{
+  attHeatStep = (attHeatStep + 1) % 4;
+  renderAttHeat();
+});
+
+// --- 3.4 Multi-Head Split ---
+const MH_SPLIT_VEC = [0.42, -0.18, 0.67, 0.31, -0.55, 0.89];
+const MH_HEAD_COLORS = ['#b586f5', '#6ec2f2', '#f2a65a'];
+const MH_HEAD_NAMES = ['Head 1', 'Head 2', 'Head 3'];
+function renderMHSplit(){
+  const el = document.getElementById('mhSplitStage');
+  if(!el) return;
+  // Original vector
+  let origHtml = `<div class="mtx-label-top">原始向量 x (d=6)</div>` +
+    mtxGrid(1, 6, ['d0','d1','d2','d3','d4','d5'], null, (r,c)=>({
+      text: MH_SPLIT_VEC[c].toFixed(2),
+      bg: MH_HEAD_COLORS[Math.floor(c/2)] + '40'
+    }));
+  // Split into heads
+  let splitHtml = `<div class="mtx-label-top">切分为 3 个头 (每头 d=2)</div><div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">`;
+  for(let h=0; h<3; h++){
+    const vals = [MH_SPLIT_VEC[h*2], MH_SPLIT_VEC[h*2+1]];
+    splitHtml += `<div><div class="mtx-label-top" style="color:${MH_HEAD_COLORS[h]};">${MH_HEAD_NAMES[h]}</div>` +
+      mtxGrid(1, 2, ['d0','d1'], null, (r,c)=>({
+        text: vals[c].toFixed(2),
+        bg: MH_HEAD_COLORS[h] + '60'
+      })) + `</div>`;
+  }
+  splitHtml += `</div>`;
+  // Each head does its own attention
+  let attHtml = `<div class="mtx-label-top">每个头独立算 softmax(QKᵀ/√d)·V → 各得一个 d=2 输出</div><div style="display:flex; gap:16px; flex-wrap:wrap; justify-content:center;">`;
+  for(let h=0; h<3; h++){
+    const out = [MH_SPLIT_VEC[h*2]*0.7 + 0.1, MH_SPLIT_VEC[h*2+1]*0.5 - 0.2];
+    attHtml += `<div><div class="mtx-label-top" style="color:${MH_HEAD_COLORS[h]};">${MH_HEAD_NAMES[h]} → 输出</div>` +
+      mtxGrid(1, 2, ['o0','o1'], null, (r,c)=>({
+        text: out[c].toFixed(2),
+        bg: MH_HEAD_COLORS[h] + '80'
+      })) + `</div>`;
+  }
+  attHtml += `</div>`;
+  // Concat
+  const concatVec = [0.29,-0.01,0.47,0.16,-0.39,0.45];
+  let concatHtml = `<div class="mtx-label-top">拼接 (concat) → 6 维 → × Wₒ 投影回原维度</div>` +
+    mtxGrid(1, 6, ['o0','o1','o2','o3','o4','o5'], null, (r,c)=>({
+      text: concatVec[c].toFixed(2),
+      bg: mtxHeatColor(concatVec[c], 0.6)
+    }));
+  el.innerHTML = origHtml + `<div class="mtx-mid">↓ 切分</div>` + splitHtml +
+    `<div class="mtx-mid">↓ 各自做 Attention</div>` + attHtml +
+    `<div class="mtx-mid">↓ 拼接</div>` + concatHtml;
+}
+renderMHSplit();
+
+// --- 3.5 MLP Matrix Flow ---
+let mlpStep = 0;
+const MLP_X = [0.42, -0.18, 0.67, 0.31];
+const MLP_W1 = [
+  [0.5,-0.4,0.7,0.1],
+  [-0.3,0.6,0.2,-0.8],
+  [0.2,-0.1,-0.5,0.4],
+  [0.8,0.3,-0.2,0.6],
+  [0.1,0.7,0.3,-0.3],
+  [-0.4,0.2,0.8,0.5],
+  [0.6,-0.5,-0.1,0.2],
+  [-0.2,0.5,0.4,-0.7]
+]; // 8×4, gate (4→8)
+const MLP_W2 = [
+  [0.3,-0.5,0.6,0.2,-0.7,0.4,0.1,-0.3],
+  [0.7,0.2,-0.4,0.5,0.3,-0.6,0.8,0.4],
+  [-0.2,0.8,0.1,-0.6,0.5,0.2,-0.3,0.7],
+  [0.5,-0.3,0.7,0.4,-0.1,0.8,0.5,-0.2]
+]; // 4×8, down (8→4)
+const MLP_W3 = [
+  [0.2,-0.6,0.8,0.4],
+  [0.5,0.3,-0.2,0.1],
+  [-0.7,0.4,0.1,-0.5],
+  [0.3,-0.1,0.6,0.7],
+  [0.6,0.5,-0.4,0.2],
+  [-0.2,0.7,0.3,-0.8],
+  [0.4,-0.3,0.5,0.3],
+  [0.1,0.2,-0.6,0.4]
+]; // 8×4, up (4→8, for SwiGLU)
+
+function matVecMul(M, v){
+  return M.map(row => row.reduce((s, m, i) => s + m * v[i], 0));
+}
+function silu(x){ return x / (1 + Math.exp(-x)); }
+
+function renderMLP(){
+  const el = document.getElementById('mlpFlowStage');
+  if(!el) return;
+  const dLabels4 = ['d0','d1','d2','d3'];
+  const dLabels8 = ['h0','h1','h2','h3','h4','h5','h6','h7'];
+
+  // Compute all stages
+  const gate = matVecMul(MLP_W1, MLP_X); // 8
+  const gateAct = gate.map(silu); // 8
+  const up = matVecMul(MLP_W3, MLP_X); // 8
+  const mid = gateAct.map((g, i) => g * up[i]); // 8
+  const out = matVecMul(MLP_W2, mid); // 4
+
+  let html = '';
+  // Step 0: input
+  html += `<div><div class="mtx-label-top">输入 x (d=4)</div>` +
+    mtxGrid(1, 4, dLabels4, null, (r,c)=>({text:MLP_X[c].toFixed(2), bg:'#171f2b'})) + `</div>`;
+  html += `<div class="mtx-mid">→</div>`;
+
+  if(mlpStep >= 1){
+    html += `<div><div class="mtx-label-top">× W_gate → gate (4→8 维)</div>` +
+      mtxGrid(1, 8, dLabels8, null, (r,c)=>({text:gate[c].toFixed(2), bg:mtxHeatColor(gate[c],1)})) + `</div>`;
+    html += `<div class="mtx-mid">→</div>`;
+  }
+  if(mlpStep >= 2){
+    html += `<div><div class="mtx-label-top">× W_up → up (4→8 维)</div>` +
+      mtxGrid(1, 8, dLabels8, null, (r,c)=>({text:up[c].toFixed(2), bg:mtxHeatColor(up[c],1)})) + `</div>`;
+    html += `<div class="mtx-mid">→</div>`;
+  }
+  if(mlpStep >= 3){
+    html += `<div class="mlp-node act"><div class="mlp-name">SwiGLU</div><div class="mlp-val">silu(gate) ⊙ up</div></div>`;
+    html += `<div class="mtx-mid">→</div>`;
+    html += `<div><div class="mtx-label-top">中间结果 (8 维)</div>` +
+      mtxGrid(1, 8, dLabels8, null, (r,c)=>({text:mid[c].toFixed(2), bg:mtxHeatColor(mid[c],0.5)})) + `</div>`;
+    html += `<div class="mtx-mid">→</div>`;
+  }
+  if(mlpStep >= 4){
+    html += `<div><div class="mtx-label-top">× W_down → 输出 (8→4 维)</div>` +
+      mtxGrid(1, 4, dLabels4, null, (r,c)=>({text:out[c].toFixed(2), bg:mtxHeatColor(out[c],0.5)})) + `</div>`;
+  }
+  el.innerHTML = html;
+
+  const exEl = document.getElementById('mlpExplain');
+  const steps = [
+    `点"逐步演示"看 <b>SwiGLU MLP</b> 的完整计算流程。SwiGLU 比 ReLU 多了一路"门控"：不是简单地激活，而是让模型自己学"该让多少信息通过"。<span class="formula-inline">FFN(x) = (silu(x·W_gate) ⊙ (x·W_up)) · W_down</span>`,
+    `<span class="step-tag">Step 1</span><b>× W_gate</b>：输入 4 维向量乘以 4×8 权重矩阵，升维到 8 维。这一步是"生成门控信号"——每个维度学会控制一个信息通道的开关比例。`,
+    `<span class="step-tag">Step 2</span><b>× W_up</b>：同样的输入再乘另一个 4×8 矩阵，也升维到 8 维。这是"实际要通过的信息"。SwiGLU 比 ReLU 多了这一路矩阵——代价是多一组权重参数。`,
+    `<span class="step-tag">Step 3</span><b>silu(gate) ⊙ up</b>：先对 gate 做 SiLU 激活（x·sigmoid(x)），再和 up 逐元素相乘。门控值接近 1 的通道让信息通过，接近 0 的通道关掉——模型自己学会了"选择性通过"。`,
+    `<span class="step-tag">Step 4</span><b>× W_down</b>：8 维中间结果乘以 8×4 矩阵，降回 4 维。升维→激活→降维，这就是 MLP 的完整流程。真实模型里 d=4096, 中间层=14336 (约3.5倍)，两个大矩阵占了模型大部分参数。`
+  ];
+  exEl.innerHTML = steps[mlpStep];
+}
+renderMLP();
+document.getElementById('mlpStepBtn').addEventListener('click', ()=>{
+  mlpStep = (mlpStep + 1) % 5;
+  renderMLP();
+});
+
+// --- 3.6 RoPE ---
+function renderRoPE(){
+  const pos = parseInt(document.getElementById('ropePosSlider').value);
+  const dimPair = parseInt(document.getElementById('ropeDimSlider').value);
+  const d = 6;
+  const theta = Math.pow(10000, -2*dimPair/d);
+  const angle = pos * theta;
+  const origX = 0.866, origY = 0.5;
+  const rotX = origX * Math.cos(angle) - origY * Math.sin(angle);
+  const rotY = origX * Math.sin(angle) + origY * Math.cos(angle);
+  const cx = 250, cy = 160, sc = 110;
+  const ox = cx + origX*sc, oy = cy - origY*sc;
+  const rx = cx + rotX*sc, ry = cy - rotY*sc;
+
+  const svg = document.getElementById('ropeSvg');
+  // Draw arc
+  const arcStart = Math.atan2(-origY, origX);
+  const arcEnd = Math.atan2(-rotY, rotX);
+  let arcPath = '';
+  const steps = 30;
+  for(let i=0; i<=steps; i++){
+    const a = arcStart + (arcEnd - arcStart) * (i/steps);
+    const px = cx + 35 * Math.cos(a);
+    const py = cy + 35 * Math.sin(a);
+    arcPath += (i===0?'M':'L') + px + ',' + py + ' ';
+  }
+
+  svg.innerHTML = `
+    <defs><marker id="ropeArrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#b586f5"/></marker></defs>
+    <line x1="50" y1="${cy}" x2="450" y2="${cy}" stroke="#232b38" stroke-width="1"/>
+    <line x1="${cx}" y1="30" x2="${cx}" y2="290" stroke="#232b38" stroke-width="1"/>
+    <circle cx="${cx}" cy="${cy}" r="${sc}" fill="none" stroke="#232b38" stroke-width="1" stroke-dasharray="3,4"/>
+    <text x="${cx+sc+8}" y="${cy+4}" fill="#6b7686" font-size="10" font-family="JetBrains Mono">1.0</text>
+    <path d="${arcPath}" stroke="var(--core)" fill="none" stroke-width="2"/>
+    <line x1="${cx}" y1="${cy}" x2="${ox}" y2="${oy}" stroke="#6b7686" stroke-width="2"/>
+    <circle cx="${ox}" cy="${oy}" r="5" fill="#6b7686"/>
+    <text x="${ox+10}" y="${oy-4}" fill="#6b7686" font-size="12" font-weight="500">原始 Q</text>
+    <line x1="${cx}" y1="${cy}" x2="${rx}" y2="${ry}" stroke="#b586f5" stroke-width="2.5" marker-end="url(#ropeArrow)"/>
+    <circle cx="${rx}" cy="${ry}" r="5" fill="#b586f5"/>
+    <text x="${rx+10}" y="${ry+4}" fill="#b586f5" font-size="12" font-weight="500">旋转后 Q</text>
+    <text x="${cx+40}" y="${cy-8}" fill="var(--infer)" font-size="13" font-family="JetBrains Mono" font-weight="700">θ=${(angle*180/Math.PI).toFixed(1)}°</text>
+    <text x="20" y="310" fill="#6b7686" font-size="11" font-family="JetBrains Mono">θ = pos × 10000^(-2i/d) = ${pos} × ${theta.toFixed(4)} = ${angle.toFixed(4)} rad</text>
+  `;
+  document.getElementById('ropePosVal').textContent = pos;
+  document.getElementById('ropeDimVal').textContent = dimPair;
+}
+document.getElementById('ropePosSlider').addEventListener('input', renderRoPE);
+document.getElementById('ropeDimSlider').addEventListener('input', renderRoPE);
+renderRoPE();
+
+// ============ Part 4: Training Pipeline ============
+
+// --- 4.1 Training Timeline ---
+const TRAIN_STAGES = [
+  {
+    num:'01', title:'预训练 Pre-training',
+    tags:[{t:'万亿token',c:'#4dd6c4'},{t:'自监督',c:'#4dd6c4'}],
+    desc:'让模型从海量文本中"自学"语言规律和世界知识。这一步决定模型的"底子"。',
+    detail:`<h4>核心任务：下一个词预测</h4><p>给模型看一句话的前 N 个词，预测第 N+1 个词。对了就降低 Loss，错了就调参。重复万亿遍，模型就学会语言的统计规律和世界知识。</p>
+    <h4>数据规模</h4><p>GPT-4 估计用了 ~13 万亿 token，Llama-3 用了 15 万亿。来源：网页爬虫、书籍、代码仓库、学术论文等。</p>
+    <h4>关键参数</h4><p><span class="formula-inline">学习率 ~3e-4 (Warmup + Cosine Decay) · Batch Size 数百万 token · 训练步数 10万~50万步 · 几千张 GPU 跑几个月</span></p>
+    <h4>产出</h4><p>一个"基座模型"——能续写文本但不会对话。你问"你好"，它可能接着写"世界"而不是回答你。它学会了"语言"和"知识"，还不会"听话"。</p>`
+  },
+  {
+    num:'02', title:'监督微调 SFT',
+    tags:[{t:'万~百万条',c:'#f2a65a'},{t:'人工标注',c:'#f2a65a'}],
+    desc:'教会模型"听指令"和"对话"。用人工写的高质量问答对来微调。',
+    detail:`<h4>数据格式</h4><p>每条数据是 (指令, 期望回答) 对。比如：指令"用三句话解释黑洞" → 回答"黑洞是引力极强的天体..."</p>
+    <h4>训练方式</h4><p>和预训练一样是"预测下一个词"，但只在"回答"部分计算 Loss——模型学的是"面对这种指令该怎么回答"，而不是"这种指令后面通常跟什么"。</p>
+    <h4>数据量对比</h4><p>预训练用万亿 token，SFT 只需几万到几十万条对话。数据量小几个数量级，但质量要求极高——每条都是人工精心编写或筛选的。</p>
+    <h4>产出</h4><p>一个"会聊天"的模型——能听懂指令、按格式回答。但回答风格可能不稳定，有时啰嗦、有时跑题，还可能有有害内容。</p>`
+  },
+  {
+    num:'03', title:'偏好对齐 RLHF / DPO',
+    tags:[{t:'人类偏好',c:'#b586f5'},{t:'安全对齐',c:'#b586f5'}],
+    desc:'让模型回答更符合人类偏好：有用、诚实、无害。解决"好不好"而非只是"对不对"。',
+    detail:`<h4>RLHF（基于人类反馈的强化学习）</h4><p>1. 让模型对同一问题生成多个回答，人工标注哪个更好。<br>2. 训练一个"奖励模型"学会预测人类偏好。<br>3. 用 PPO 算法让模型优化回答来最大化奖励分数。</p>
+    <h4>DPO（直接偏好优化）</h4><p>不需要单独训练奖励模型，直接用偏好数据优化模型。数学更简洁、工程更稳定。Llama-3 和 DeepSeek 都用了 DPO。</p>
+    <h4>对齐目标</h4><p><b>有用</b>：回答切题、信息丰富、不废话<br><b>诚实</b>：不确定时说"我不知道"，不编造<br><b>无害</b>：拒绝有害请求，不输出危险内容</p>
+    <h4>产出</h4><p>最终的"对话模型"——你在 ChatGPT、DeepSeek 里用的版本。知道什么时候该详细、什么时候该简洁、什么时候该拒绝。</p>`
+  },
+  {
+    num:'04', title:'推理优化',
+    tags:[{t:'量化',c:'#6ec2f2'},{t:'蒸馏',c:'#6ec2f2'}],
+    desc:'让训练好的模型在有限算力下跑得更快、更省显存。不改变模型"懂什么"，只改变"怎么跑"。',
+    detail:`<h4>量化（Quantization）</h4><p>权重从 FP16 压缩到 INT8 甚至 INT4。显存减半到 1/4，速度提升 2-4 倍，质量损失通常 1-3%。DeepSeek-V3 部署版用了 FP8 量化。</p>
+    <h4>KV Cache 优化</h4><p>长对话的 KV Cache 是最大显存瓶颈。方案：PagedAttention（vLLM 核心技术）、KV Cache 压缩（只保留重要的 K/V）。</p>
+    <h4>投机解码（Speculative Decoding）</h4><p>用小模型先快速"猜"几个词，大模型只需验证——对的直接用，错的重新生成。整体速度提升 2-3 倍。</p>
+    <h4>蒸馏（Distillation）</h4><p>用大模型（教师）的输出训练小模型（学生），让小模型学到接近大模型的能力。这是很多"小模型"能超过同尺寸"野生"模型的原因。</p>`
+  }
+];
+function renderTrainTimeline(){
+  const el = document.getElementById('trainTimeline');
+  if(!el) return;
+  el.innerHTML = TRAIN_STAGES.map((s, i) => `
+    <div class="train-stage" data-idx="${i}">
+      <div class="ts-num">${s.num}</div>
+      <div class="ts-body">
+        <div class="ts-title">${s.title}</div>
+        <div class="ts-desc">${s.desc}</div>
+        ${s.tags.map(t=>`<span class="ts-tag" style="background:${t.c}20; color:${t.c}; border:1px solid ${t.c}40;">${t.t}</span>`).join('')}
+        <div class="train-detail" id="trainDetail${i}">${s.detail}</div>
+      </div>
+    </div>
+  `).join('');
+  el.querySelectorAll('.train-stage').forEach(stage => {
+    stage.addEventListener('click', () => {
+      const idx = parseInt(stage.dataset.idx);
+      const detail = document.getElementById('trainDetail'+idx);
+      const isOpen = detail.classList.toggle('open');
+      stage.classList.toggle('active', isOpen);
+    });
+  });
+}
+renderTrainTimeline();
+
+// --- 4.2 KV Cache ---
+let kvCacheLen = 0;
+const KV_SENTENCE = ['服务','员','端来','咖啡','，','它','很','烫'];
+function renderKVCache(){
+  const el = document.getElementById('kvcacheFlow');
+  if(!el) return;
+  el.innerHTML = KV_SENTENCE.map((tok, i) => {
+    let cls = '', sub = '待生成';
+    if(i < kvCacheLen){ cls = 'cached'; sub = 'K/V ✓'; }
+    else if(i === kvCacheLen){ cls = 'new'; sub = '计算中'; }
+    return `<div class="kvcache-step ${cls}">${tok}<br><span style="font-size:9px; opacity:.7;">${sub}</span></div>`;
+  }).join('');
+}
+renderKVCache();
+document.getElementById('kvcacheStepBtn').addEventListener('click', ()=>{
+  if(kvCacheLen < KV_SENTENCE.length) kvCacheLen++;
+  renderKVCache();
+});
+document.getElementById('kvcacheResetBtn').addEventListener('click', ()=>{
+  kvCacheLen = 0;
+  renderKVCache();
+});
+
+// --- 4.3 LR Schedule ---
+function renderLRChart(){
+  const el = document.getElementById('lrChart');
+  if(!el) return;
+  const total = 80, warmupN = 3;
+  const peak = 3e-4;
+  let bars = [];
+  for(let i=0; i<total; i++){
+    let lr, warmup = false;
+    if(i < warmupN){ lr = (i+1)/warmupN * peak; warmup = true; }
+    else { const p = (i-warmupN)/(total-warmupN); lr = peak * (0.05 + 0.95*(1+Math.cos(Math.PI*p))/2); }
+    bars.push({lr, warmup});
+  }
+  el.innerHTML = bars.map(b =>
+    `<div class="lr-bar${b.warmup?' warmup':''}" style="height:${(b.lr/peak*100).toFixed(1)}%" title="step ${bars.indexOf(b)+1}: ${b.lr.toExponential(2)}"></div>`
+  ).join('');
+}
+renderLRChart();
+
+// --- 4.4 GQA Comparison ---
+function renderGQA(){
+  const el = document.getElementById('gqaFlow');
+  if(!el) return;
+  const configs = [
+    {name:'MHA', full:'标准多头注意力', q:8, kv:8, color:'#4dd6c4', cache:'100%', quality:'最高'},
+    {name:'GQA', full:'分组查询注意力', q:8, kv:2, color:'#b586f5', cache:'25%', quality:'接近MHA'},
+    {name:'MQA', full:'多查询注意力', q:8, kv:1, color:'#f2a65a', cache:'12.5%', quality:'下降明显'}
+  ];
+  el.innerHTML = configs.map(cfg => {
+    let qBoxes = '<div style="display:flex;gap:3px;flex-wrap:wrap;justify-content:center;">';
+    for(let i=0;i<cfg.q;i++){
+      const grp = cfg.kv===cfg.q ? i : Math.floor(i/(cfg.q/cfg.kv));
+      const op = cfg.kv===1 ? 0.5 : (0.35+0.65/cfg.kv*(grp+1));
+      qBoxes += `<div style="width:22px;height:22px;border-radius:4px;background:${cfg.color};opacity:${op};display:flex;align-items:center;justify-content:center;font-size:8px;color:#0a0d12;font-weight:700;">Q</div>`;
+    }
+    qBoxes += '</div>';
+    let kvBoxes = '<div style="display:flex;gap:3px;justify-content:center;">';
+    for(let i=0;i<cfg.kv;i++){
+      kvBoxes += `<div style="width:22px;height:22px;border-radius:4px;background:${cfg.color};display:flex;align-items:center;justify-content:center;font-size:8px;color:#0a0d12;font-weight:700;border:2px solid #fff;box-shadow:0 0 6px ${cfg.color}80;">KV</div>`;
+    }
+    kvBoxes += '</div>';
+    return `<div style="display:flex;gap:20px;align-items:center;justify-content:center;flex-wrap:wrap;padding:12px;background:#0d1219;border:1px solid var(--line);border-radius:10px;width:100%;">
+      <div style="min-width:130px;"><div style="font-weight:700;font-size:15px;color:${cfg.color};">${cfg.name}</div><div style="font-size:11px;color:var(--dim);">${cfg.full}</div></div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center;"><div style="font-size:10px;color:var(--dim);font-family:JetBrains Mono,monospace;">${cfg.q} 个 Q 头</div>${qBoxes}</div>
+      <div style="font-size:18px;color:var(--dim);">↕</div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:center;"><div style="font-size:10px;color:var(--dim);font-family:JetBrains Mono,monospace;">${cfg.kv} 个 KV 头</div>${kvBoxes}</div>
+      <div style="min-width:110px;"><div style="font-size:12px;color:var(--text);">KV Cache: <b style="color:${cfg.color};">${cfg.cache}</b></div><div style="font-size:11px;color:var(--dim);">质量: ${cfg.quality}</div></div>
+    </div>`;
+  }).join('');
+}
+renderGQA();
+</script>
+
+</body>
+</html>

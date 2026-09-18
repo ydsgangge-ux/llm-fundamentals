@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>大模型解剖室</title>
+<title>大模型解剖室 · 从 Token 到 Agent</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700;900&display=swap');
 
@@ -531,6 +531,23 @@ header p{ color: var(--dim); font-size:14px; }
   .mh-mtx-grid{ grid-template-columns:1fr; }
   .mtx-cell{ width:26px; height:26px; font-size:8px; }
 }
+
+.mla-flow{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;padding:16px;background:#0d1219;border:1px solid var(--line);border-radius:10px}.mla-node{font:11px 'JetBrains Mono',monospace;background:#171f2b;border:1px solid var(--line);border-radius:8px;padding:11px 13px;text-align:center}.mla-node.input{border-color:var(--infer);color:var(--infer)}.mla-node.latent{border-color:var(--core);color:var(--core)}.mla-node.cache{border-color:var(--train);color:var(--train)}
+/* ===== Part 5/6 extensions ===== */
+.course-map{margin:18px auto 26px;max-width:1100px;padding:16px 18px;background:#0d1219;border:1px solid var(--line);border-radius:12px;}
+.course-map-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;margin-bottom:12px}.course-map-kicker{font:10px/1 'JetBrains Mono',monospace;color:var(--core);letter-spacing:1.6px}.course-map-title{font-size:13px;color:var(--text)}
+.course-track{display:flex;flex-wrap:wrap;justify-content:center;gap:7px;align-items:center;font:11px 'JetBrains Mono',monospace}.course-track span{padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:#131922}.course-track span.done{color:var(--infer);border-color:var(--infer-dim)}.course-track span.next{color:var(--core);border-color:rgba(181,134,245,.5)}.course-track i{font-style:normal;color:var(--dim)}.course-map-note{margin-top:12px;color:var(--dim);font-size:12px;line-height:1.75}.course-map-note b{color:var(--text)}
+.state-flow{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:stretch;margin:12px 0}.state-card{background:#0d1219;border:1px solid var(--line);border-radius:10px;padding:14px 12px;position:relative;min-height:128px}.state-card.active{border-color:var(--core);box-shadow:0 0 14px -4px var(--core)}.state-card .state-stage{font:10px 'JetBrains Mono',monospace;color:var(--dim);text-transform:uppercase;letter-spacing:.8px}.state-card .state-name{font-size:15px;font-weight:700;margin:6px 0}.state-card .state-chip{display:inline-flex;padding:4px 7px;border-radius:5px;background:#171f2b;border:1px solid var(--line);font:11px 'JetBrains Mono',monospace;color:var(--infer)}.state-card p{font-size:12px;line-height:1.65;color:var(--dim);margin-top:8px}.state-arrow{display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:18px}
+.ti-toggle{display:flex;gap:8px;margin-bottom:14px}.ti-btn{font:12px 'JetBrains Mono',monospace;background:#171f2b;border:1px solid var(--line);color:var(--dim);padding:8px 14px;border-radius:8px;cursor:pointer}.ti-btn.active{color:var(--core);border-color:var(--core);box-shadow:0 0 10px -3px var(--core)}.ti-canvas{display:grid;grid-template-columns:1fr 1fr;gap:12px}.ti-panel{background:#0d1219;border:1px solid var(--line);border-radius:10px;padding:16px}.ti-panel h4{font-size:14px;margin-bottom:10px}.ti-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.ti-node{font:11px 'JetBrains Mono',monospace;background:#171f2b;border:1px solid var(--line);border-radius:7px;padding:8px 10px}.ti-node.core{border-color:var(--core);color:var(--core)}.ti-node.train{border-color:var(--train);color:var(--train)}.ti-arrow{color:var(--dim)}.ti-list{margin-top:12px;font-size:12.5px;line-height:1.75;color:var(--dim)}
+.memory-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.memory-card{background:#0d1219;border:1px solid var(--line);border-radius:10px;padding:15px;cursor:pointer;transition:.15s}.memory-card:hover{transform:translateY(-2px);border-color:var(--dim)}.memory-card.active{border-color:var(--core);box-shadow:0 0 12px -4px var(--core)}.memory-card .mem-kind{font:10px 'JetBrains Mono',monospace;color:var(--core);letter-spacing:1px}.memory-card h4{font-size:15px;margin:6px 0}.memory-card p{font-size:12px;line-height:1.65;color:var(--dim)}.memory-detail{margin-top:12px;background:#0d1219;border:1px solid var(--line);border-radius:9px;padding:13px 15px;font-size:13px;line-height:1.8;color:var(--text)}
+.decode-controls{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-bottom:14px}.decode-controls label{display:flex;align-items:center;gap:7px;font:11px 'JetBrains Mono',monospace;color:var(--dim)}.decode-controls input{width:150px;accent-color:var(--core)}.decode-controls b{color:var(--core);min-width:28px}.decode-bars{display:flex;flex-direction:column;gap:7px;background:#0d1219;border:1px solid var(--line);border-radius:10px;padding:14px}.decode-row{display:grid;grid-template-columns:74px 1fr 55px;gap:9px;align-items:center;font-size:12px}.decode-name{font-weight:700}.decode-bar-bg{height:10px;background:#171f2b;border-radius:4px;overflow:hidden}.decode-bar-fill{height:100%;background:var(--core);border-radius:4px;transition:width .2s}.decode-pct{text-align:right;color:var(--dim);font:11px 'JetBrains Mono',monospace}
+.train-step-map{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;min-height:90px;padding:14px;background:#0d1219;border:1px solid var(--line);border-radius:10px}.tsm-node{font:11px 'JetBrains Mono',monospace;background:#171f2b;border:1px solid var(--line);border-radius:8px;padding:10px 12px;text-align:center}.tsm-node.active{border-color:var(--train);color:var(--train);box-shadow:0 0 11px -3px var(--train)}.tsm-node.param{border-color:var(--core);color:var(--core)}.tsm-arrow{color:var(--dim)}
+.agent-loop{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;padding:16px 8px;background:#0d1219;border:1px solid var(--line);border-radius:10px}.agent-node{min-width:90px;text-align:center;background:#171f2b;border:1px solid var(--line);border-radius:8px;padding:10px 9px}.agent-node.core{border-color:var(--core);color:var(--core)}.agent-node.tool{border-color:var(--infer);color:var(--infer)}.agent-node.obs{border-color:var(--train);color:var(--train)}.agent-arrow{color:var(--dim);font-size:15px}.agent-loop .loop-tag{width:100%;text-align:center;color:var(--dim);font:10px 'JetBrains Mono',monospace;margin-top:4px}
+.cache-compare{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cache-card{background:#0d1219;border:1px solid var(--line);border-radius:10px;padding:16px}.cache-card h4{font-size:15px;margin-bottom:8px}.cache-timeline{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0}.cache-chip{font:10px 'JetBrains Mono',monospace;padding:5px 7px;border-radius:5px;background:#171f2b;border:1px solid var(--line)}.cache-chip.hit{color:var(--infer);border-color:var(--infer-dim)}.cache-chip.req{color:var(--core);border-color:rgba(181,134,245,.45)}.cache-card p{font-size:12px;line-height:1.7;color:var(--dim)}
+.lab-flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;min-height:92px;padding:14px;background:#0d1219;border:1px solid var(--line);border-radius:10px}.lab-node{font:11px 'JetBrains Mono',monospace;padding:11px 12px;background:#171f2b;border:1px solid var(--line);border-radius:8px;text-align:center}.lab-node.base{border-color:var(--infer);color:var(--infer)}.lab-node.experiment{border-color:var(--core);color:var(--core)}.lab-node.note{max-width:220px;color:var(--dim)}
+.master-map{background:#0d1219;border:1px solid var(--line);border-radius:12px;padding:18px;overflow-x:auto}.master-grid{min-width:820px;display:grid;grid-template-columns:1.2fr .9fr 1.5fr 1.2fr;gap:12px;align-items:stretch}.mm-col{display:flex;flex-direction:column;gap:8px}.mm-title{font:10px 'JetBrains Mono',monospace;color:var(--dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:1px}.mm-node{padding:10px 11px;border-radius:8px;background:#171f2b;border:1px solid var(--line);font-size:12px}.mm-node.core{border-color:var(--core);color:var(--core)}.mm-node.train{border-color:var(--train);color:var(--train)}.mm-node.infer{border-color:var(--infer);color:var(--infer)}.mm-node.small{font-size:10.5px;color:var(--dim)}.mm-loop{margin-top:8px;border:1px dashed var(--core);border-radius:10px;padding:10px;background:rgba(181,134,245,.04)}.mm-loop strong{color:var(--core)}.source-block{border-style:dashed}.source-text{font-size:13px;line-height:1.8;color:var(--text);margin-bottom:10px}.source-links{display:flex;gap:10px;flex-wrap:wrap;font:11px 'JetBrains Mono',monospace}.source-links a{color:var(--infer);text-decoration:none}.source-links a:hover{text-decoration:underline}
+@media (max-width:760px){.state-flow,.ti-canvas,.memory-grid,.cache-compare{grid-template-columns:1fr}.state-flow{gap:8px}.course-track{justify-content:flex-start}.master-grid{min-width:680px}}
+
 </style>
 </head>
 <body>
@@ -539,8 +556,29 @@ header p{ color: var(--dim); font-size:14px; }
   <header>
     <div class="eyebrow">LLM ANATOMY LAB</div>
     <h1>大模型解剖室</h1>
-    <p>点击任意模块，看它到底在做什么、为什么需要它</p>
+    <p>把一个大模型拆开：从 Token → 向量 → Hidden State → Transformer → 训练 → 推理 → Cache → Agent</p>
   </header>
+
+  <div class="course-map">
+    <div class="course-map-head">
+      <span class="course-map-kicker">YOUR LEARNING MAP</span>
+      <span class="course-map-title">你已经走过的路，以及下一步真正该连起来的东西</span>
+    </div>
+    <div class="course-track">
+      <span class="done">① Token</span><i>→</i>
+      <span class="done">② Embedding / Vector</span><i>→</i>
+      <span class="done">③ Attention / QKV</span><i>→</i>
+      <span class="done">④ Residual / Norm / MLP</span><i>→</i>
+      <span class="done">⑤ Matrix / Training</span><i>→</i>
+      <span class="next">⑥ Hidden State</span><i>→</i>
+      <span class="next">⑦ Train vs Infer</span><i>→</i>
+      <span class="next">⑧ Cache / Decode</span><i>→</i>
+      <span class="next">⑨ Agent / Architecture</span>
+    </div>
+    <div class="course-map-note">
+      真正容易“串起来”的关键，不是再背 20 个名词，而是回答四个问题：<b>现在模型手里拿着什么？它在修改什么？哪些东西会留下来？下一步是谁决定的？</b>
+    </div>
+  </div>
 
   <div class="mode-toggle">
     <button data-mode="infer" class="active">▶ 推理模式：看一个词怎么被生成</button>
@@ -567,7 +605,7 @@ header p{ color: var(--dim); font-size:14px; }
 
       <div class="node" data-id="attention" style="--sel:var(--core)"><div class="zh">自注意力 Self-Attention</div><div class="en">每个词回头看所有词</div></div>
       <div class="connector flow"></div>
-      <div class="node" data-id="residual1" style="--sel:var(--core)"><div class="zh">残差连接 Residual (+)</div><div class="en">加回原始信号，防止丢失</div></div>
+      <div class="node" data-id="residual1" style="--sel:var(--core)"><div class="zh">残差连接 Residual (+)</div><div class="en">加回保留这一子层输入，给信息和梯度一条捷径</div></div>
       <div class="connector flow"></div>
       <div class="node" data-id="norm1" style="--sel:var(--core)"><div class="zh">层归一化 LayerNorm</div><div class="en">把数值拉回合理范围</div></div>
       <div class="connector flow"></div>
@@ -671,7 +709,7 @@ header p{ color: var(--dim); font-size:14px; }
       <h4 class="mh-title">用真数字看看："为什么"能稳定训练</h4>
       <p class="mh-desc">下面对比同一件事：反向传播时梯度经过12层之后还剩多少。两条都是真实用 Math.pow 算出来的：</p>
       <div id="gradCompare"></div>
-      <p class="footnote">没有残差连接时，梯度必须连续乘过12层，每层假设局部导数在0.75左右（激活函数饱和区很常见），12层后只剩<b style="color:var(--train)" id="gradWithoutPct"></b>——这就是"梯度消失"：深层网络的最前几层几乎学不到东西，因为传到那里的误差信号已经小到可以忽略。有残差连接时，output=x+f(x)，对x求导恒有一条"+1"的恒等路径，不管f'多小，这条路径都不会衰减，12层后至少还保留<b style="color:var(--core)" id="gradWithPct"></b>的梯度强度。这就是ResNet/Transformer能堆到几十上百层而不"学不动"的根本原因。</p>
+      <p class="footnote">没有残差连接时，梯度必须连续乘过12层，每层假设局部导数在0.75左右（激活函数饱和区很常见），12层后只剩<b style="color:var(--train)" id="gradWithoutPct"></b>——这就是“梯度消失”：深层网络的最前几层几乎学不到东西，因为传到那里的误差信号已经小到可以忽略。有残差连接时，<span class="formula-inline">output = x + F(x)</span>，对 x 求导会多出一条恒等路径；这里用教学化近似来直观说明它为什么能缓解梯度衰减，但不应理解为“整个 Transformer 的梯度永远等于 1”。12层后的示意强度显示在这里：<b style="color:var(--core)" id="gradWithPct"></b>。</p>
     </div>
   </div>
 
@@ -851,20 +889,20 @@ header p{ color: var(--dim); font-size:14px; }
 
 <div class="mtx-wrap">
   <div class="mtx-intro">
-    <h2>从随机权重到能对话：训练的四个阶段</h2>
-    <p>大模型不是"一次性训练"出来的。从一堆随机数到能和你对话，要经过<b style="color:var(--text)">预训练、监督微调、偏好对齐、推理优化</b>四个阶段，每个阶段的目标、数据、方法完全不同。下面逐个拆开看。</p>
+    <h2>从随机权重到可用模型：训练、后训练与部署</h2>
+    <p>大模型不是“一次性训练”出来的。可以把模型生命周期理解成<b style="color:var(--text)">预训练 → 指令/偏好后训练 → 部署与推理优化</b>。前两类主要改变模型参数，最后一类主要改变“怎么把已经训练好的模型跑得更快、更省”。</p>
   </div>
 
   <!-- 4.1 Training Timeline -->
   <div class="mtx-block">
-    <h3>① 训练四阶段时间线</h3>
-    <div class="mtx-sub">点击每个阶段展开细节</div>
+    <h3>① 模型生命周期时间线</h3>
+    <div class="mtx-sub">点击每个阶段展开细节 · 第 04 阶段严格说不是训练，而是部署 / 推理工程</div>
     <div class="train-timeline" id="trainTimeline"></div>
   </div>
 
   <!-- 4.2 KV Cache -->
   <div class="mtx-block">
-    <h3>② KV Cache：为什么逐词生成不会越来越慢</h3>
+    <h3>② KV Cache：生成时为什么要缓存 K/V</h3>
     <div class="mtx-sub">每生成一个新词，之前的 K/V 不需要重新算——缓存下来直接复用</div>
     <div class="mtx-canvas">
       <div class="kvcache-flow" id="kvcacheFlow"></div>
@@ -890,19 +928,135 @@ header p{ color: var(--dim); font-size:14px; }
       </div>
     </div>
     <div class="mtx-explain" id="lrExplain">
-      <span class="step-tag">调度</span>训练不是一路全速前进。前 <b>~2% 步数</b>做 Warmup：学习率从 0 线性升到峰值（比如 3e-4），让模型先用小步试探、避免一开始就大幅破坏随机初始化的权重。之后用 <b>Cosine 衰减</b>：按余弦曲线缓慢降到峰值的 ~10%。前期大步快走学大方向，后期小步精调做微调。整个曲线形状对最终模型质量影响很大——太激进会发散，太平缓会学不动。
+      <span class="step-tag">调度</span>训练不是一路全速前进。前 <b>~2% 步数</b>做 Warmup：学习率从 0 线性升到峰值（比如 3e-4），让模型先用小步试探、避免一开始就大幅破坏随机初始化的权重。之后用 <b>Cosine 衰减</b>：按余弦曲线缓慢降到峰值的 ~10%。前期通常允许更积极的参数更新，后期再逐步减小步幅。这里展示的是教学用曲线；真实训练配方会因模型与训练阶段而不同。
     </div>
   </div>
 
   <!-- 4.4 GQA -->
   <div class="mtx-block">
-    <h3>④ GQA：Llama/DeepSeek 都在用的注意力省显存术</h3>
+    <h3>④ GQA：一条重要的 KV Cache 省显存路线</h3>
     <div class="mtx-sub">MQA vs GQA vs MHA · Key/Value 头数怎么省</div>
     <div class="kvcache-flow" id="gqaFlow" style="flex-direction:column; gap:16px; padding:16px 0;"></div>
     <div class="mtx-explain" id="gqaExplain">
-      <span class="step-tag">GQA</span><b>MHA</b>（标准多头）：32 个 Q 头 × 32 个 K/V 头，最灵活但 KV Cache 最大。<b>MQA</b>（多查询）：32 个 Q 头 × 1 个 K/V 头，KV Cache 直接缩小 32 倍，但质量下降明显。<b>GQA</b>（分组查询）：折中方案——32 个 Q 头分成比如 8 组，每组共享 1 个 K/V 头。KV Cache 缩小 4 倍，质量几乎不掉。Llama-3（8组）、DeepSeek-V3 都用 GQA，这是长上下文能做起来的关键工程优化之一。
+      <span class="step-tag">GQA</span><b>MHA</b>（标准多头）：32 个 Q 头 × 32 个 K/V 头，最灵活但 KV Cache 最大。<b>MQA</b>（多查询）：32 个 Q 头 × 1 个 K/V 头，KV Cache 直接缩小 32 倍，但质量下降明显。<b>GQA</b>（分组查询）：折中方案——32 个 Q 头分成比如 8 组，每组共享 1 个 K/V 头。KV Cache 缩小 4 倍，质量几乎不掉。Llama 3 采用 GQA；DeepSeek-V3 则采用 MLA（Multi-head Latent Attention），两者都在解决“KV Cache 太大”这个工程问题，但路线不同。
     </div>
   </div>
+
+  <div class="mtx-block">
+    <h3>⑤ MLA：DeepSeek 为什么不是简单“少几个 KV 头”</h3>
+    <div class="mtx-sub">Multi-head Latent Attention · 把 KV 的表示压进更紧凑的 latent representation</div>
+    <div class="mla-flow" id="mlaFlow"></div>
+    <div class="mtx-explain" id="mlaExplain"></div>
+  </div>
+</div>
+
+<div class="section-divider"><div class="line"></div><span>PART 5 · 把“模型”真正串起来</span><div class="line"></div></div>
+
+<div class="vwrap">
+  <div class="vintro">
+    <h2>Hidden State：模型真正“拿在手里”的东西</h2>
+    <p>你前面已经看过 Token、Embedding、Attention、Residual、MLP、Logits。但这些模块之间真正传递的主角只有一个：<b style="color:var(--text)">Hidden State</b>。它就是“这个 token 到当前这一层为止，模型暂时形成的表示”。</p>
+    <div class="caveat">一张最重要的区分表：<b>Parameters</b> 是模型训练后长期留下来的“能力”；<b>Hidden State</b> 是这次输入产生的“当前状态”；<b>KV Cache</b> 是为了这次生成而保存的中间结果；<b>Prefix Cache</b> 则是服务系统可能跨请求复用的一段已计算结果。四者不是一回事。</div>
+  </div>
+
+  <div class="vblock">
+    <h3>① Embedding ≠ Hidden State：同一个 token，经过层层加工后变了</h3>
+    <div class="vsub">点击下方“它”，观察同一个 token 在不同阶段的表示发生什么变化</div>
+    <div class="state-flow" id="hiddenStateFlow"></div>
+    <div class="mtx-controls">
+      <button class="mtx-step-btn" id="hiddenStateStepBtn">▶ 推进一步</button>
+      <button class="mtx-step-btn dim" id="hiddenStateResetBtn">↺ 重置</button>
+    </div>
+    <div class="mtx-explain" id="hiddenStateExplain"></div>
+  </div>
+
+  <div class="vblock">
+    <h3>② Training vs Inference：结构一样，工作方式不同</h3>
+    <div class="vsub">这是你学习过程中最容易混在一起的一对概念：训练不是另一套 Transformer，而是同一套模型 + 不同的外层工作流程</div>
+    <div class="ti-toggle">
+      <button class="ti-btn active" data-ti="train">⟲ 训练</button>
+      <button class="ti-btn" data-ti="infer">▶ 推理</button>
+    </div>
+    <div class="ti-canvas" id="trainInferView"></div>
+    <div class="mtx-explain" id="trainInferExplain"></div>
+  </div>
+
+  <div class="vblock">
+    <h3>③ 四种“记忆”分开看：你就不会再把 Cache 和参数混在一起</h3>
+    <div class="vsub">点击任意一层，看看它保存什么、保存多久、谁来写、谁来读</div>
+    <div class="memory-grid" id="memoryGrid"></div>
+    <div class="memory-detail" id="memoryDetail"></div>
+  </div>
+
+  <div class="vblock">
+    <h3>④ 从 Logits 到“北京 1%”：概率到底发生在哪里</h3>
+    <div class="vsub">模型不是直接吐出“答案”，它先对整个词表打分，再由解码策略决定下一个 token</div>
+    <div class="decode-controls">
+      <label>Temperature <input id="tempSlider" type="range" min="0.2" max="2" value="0.8" step="0.1"><b id="tempVal">0.8</b></label>
+      <label>Top-K <input id="topKSlider" type="range" min="1" max="6" value="4" step="1"><b id="topKVal">4</b></label>
+    </div>
+    <div class="decode-bars" id="decodeBars"></div>
+    <div class="mtx-explain" id="decodeExplain"></div>
+  </div>
+
+  <div class="vblock">
+    <h3>⑤ 一个完整训练 Step：把“前向、Loss、梯度、Optimizer”连成一条线</h3>
+    <div class="vsub">之前你已经会算一个极简神经网络；这里把视角拉回大模型，但故意只保留最关键的 6 个节点</div>
+    <div class="train-step-map" id="trainStepMap"></div>
+    <div class="mtx-controls">
+      <button class="mtx-step-btn" id="trainStepPlayBtn">▶ 播放一次完整训练 Step</button>
+    </div>
+    <div class="mtx-explain" id="trainStepExplain"></div>
+  </div>
+</div>
+
+<div class="section-divider"><div class="line"></div><span>PART 6 · 从模型走向系统</span><div class="line"></div></div>
+
+<div class="vwrap">
+  <div class="vintro">
+    <h2>真正的“AI 系统”，不只是一颗 Transformer</h2>
+    <p>你已经开始接触 Agent、工具调用、Prefix Cache 和小模型实验。到这里要建立第二张地图：<b style="color:var(--text)">Transformer 是核心计算器，系统则是在它外面再套上下文、缓存、工具、循环和评估。</b></p>
+  </div>
+
+  <div class="vblock">
+    <h3>① LLM → Agent：多出来的到底是什么</h3>
+    <div class="vsub">模型本身主要负责“根据当前上下文产生下一步输出”；Agent 把这个输出接进一个行动循环</div>
+    <div class="agent-loop" id="agentLoop"></div>
+    <div class="mtx-explain">
+      <b>核心区别：</b>Tool Call、网页搜索、读写文件、执行代码、重新规划，不是 Transformer 里突然冒出来的“新神经元”。它们通常发生在模型外部的编排层。模型输出一个动作或工具参数 → 外部程序执行 → 把结果重新塞回上下文 → 模型继续生成。于是“单次预测器”被系统包装成了“循环工作的 Agent”。
+    </div>
+  </div>
+
+  <div class="vblock">
+    <h3>② KV Cache vs Prefix Cache：一次请求里缓存什么，跨请求又缓存什么</h3>
+    <div class="vsub">这正好对应你之前研究的 Prefix Cache：两者都叫 Cache，但生命周期不同</div>
+    <div class="cache-compare" id="cacheCompare"></div>
+    <div class="mtx-explain" id="cacheCompareExplain"></div>
+  </div>
+
+  <div class="vblock">
+    <h3>③ 改模型结构意味着什么：为什么一个 Latent Processor 不能“白插进去”</h3>
+    <div class="vsub">把你的实验思路放回 Transformer 里看：结构改变 = 函数改变；想看到模块真正贡献，必须让训练负责把它“学会”</div>
+    <div class="lab-flow" id="labFlow"></div>
+    <div class="mtx-controls">
+      <button class="mtx-step-btn" id="labModeBtn">切换：实验结构</button>
+    </div>
+    <div class="mtx-explain" id="labExplain"></div>
+  </div>
+
+  <div class="vblock">
+    <h3>④ 最终总地图：从一句话到一个 Agent，所有东西放回原位</h3>
+    <div class="vsub">这张图才是你以后继续学习时真正该记住的“骨架”——其他名词都往这张图上挂</div>
+    <div class="master-map" id="masterMap"></div>
+    <div class="footnote">学习建议：以后碰到一个新名词，先问它属于哪一层：<b>数据</b>、<b>模型内部状态</b>、<b>训练</b>、<b>推理工程</b>，还是<b>系统编排</b>。定位清楚后，再去研究公式，通常就不会再乱。</div>
+  </div>
+
+  <div class="vblock source-block">
+    <h3>资料校准 · 本页对外部架构事实做了两处区分</h3>
+    <p class="source-text">Llama 3 官方介绍明确采用 GQA；DeepSeek-V3 技术报告则明确采用 MLA（Multi-head Latent Attention）与 DeepSeekMoE。因此，本页不再把两者写成同一种 KV 压缩路线。</p>
+    <p class="source-links"><a href="https://ai.meta.com/blog/meta-llama-3/" target="_blank" rel="noopener">Meta · Introducing Llama 3</a><span>·</span><a href="https://arxiv.org/abs/2412.19437" target="_blank" rel="noopener">DeepSeek-V3 Technical Report</a></p>
+  </div>
+
 </div>
 
 <div class="overlay" id="overlay"></div>
@@ -957,13 +1111,13 @@ const DATA = {
     analogy:"像开会时你说话前会环视全场——重点看那几个跟你观点相关的人，忽略在打瞌睡的人，再综合大家的意见调整自己要说的话。",
     formula:"Attention(Q,K,V) = softmax(QKᵀ / √d) · V",
     why:"这是Transformer最核心的发明：让模型能直接建立任意两个词之间的联系，无论它们隔多远，这解决了老式RNN'记不住远处信息'的老大难问题。",
-    adv:"<h4>Q/K/V到底怎么算出来的</h4><p>拿到每个词的向量x后，分别乘上三个不同的权重矩阵：Q=x·Wq，K=x·Wk，V=x·Wv。三个矩阵在训练中学出不同的'性格'——Q学会'我在找什么'，K学会'我能提供什么'，V学会'如果被选中，我该贡献什么内容'。</p><h4>为什么要拆成多头（Multi-Head）</h4><p>不会只算一次Attention，而是把向量拆成比如32个更窄的子空间，每个子空间独立算一次Attention（各自有一套Wq/Wk/Wv），最后拼接再投影回原维度。不同的头可以专注不同的关系——有的头抓语法结构，有的头抓指代关系，有的头抓长距离的因果逻辑。</p><h4>为什么要除以√d</h4><p>向量维度d越大，点积QKᵀ的数值会随之线性增长，让Softmax输入的方差过大、梯度变陡峭。除以√d是把点积数值拉回适合Softmax计算的区间。</p><h4>KV Cache：推理时最重要的优化</h4><p>生成第N个词时，前面N-1个词的K和V已经在之前的步骤算过了，不需要重新算——缓存下来直接复用。这就是为什么ChatGPT前几个词出来得慢、后面越来越快：前面在填充Cache，后面只增量计算新词的Q/K/V。但代价是：长对话的Cache会吃掉大量显存，这也是长上下文模型最难优化的工程问题之一。</p><h4>GQA：省显存的关键架构选择</h4><p>标准多头（MHA）每个Q头都有独立的K/V头，Cache最大。Llama-3、DeepSeek-V3用GQA（分组查询）：多个Q头共享一组K/V头，比如32个Q头分成8组，每组共享1个K/V头，Cache直接缩小4倍，质量几乎不掉。极端情况是MQA（所有Q头共享1个K/V头），Cache最小但质量下降明显。GQA是质量和效率的甜蜜点。</p><h4>注意力掩码（Masking）</h4><p>生成式模型在训练时用的是'因果掩码'（Causal Mask）：每个词只能看到自己和之前的词，看不到未来的词。这是一个下三角矩阵，把注意力矩阵的上三角部分设为负无穷，Softmax后变成0。这就是模型能'自回归'生成文本的基础——永远只从过去的信息预测未来。</p>"
+    adv:"<h4>Q/K/V到底怎么算出来的</h4><p>拿到每个词的向量x后，分别乘上三个不同的权重矩阵：Q=x·Wq，K=x·Wk，V=x·Wv。三个矩阵在训练中学出不同的'性格'——Q学会'我在找什么'，K学会'我能提供什么'，V学会'如果被选中，我该贡献什么内容'。</p><h4>为什么要拆成多头（Multi-Head）</h4><p>不会只算一次Attention，而是把向量拆成比如32个更窄的子空间，每个子空间独立算一次Attention（各自有一套Wq/Wk/Wv），最后拼接再投影回原维度。不同的头可以专注不同的关系——有的头抓语法结构，有的头抓指代关系，有的头抓长距离的因果逻辑。</p><h4>为什么要除以√d</h4><p>向量维度d越大，点积QKᵀ的数值会随之线性增长，让Softmax输入的方差过大、梯度变陡峭。除以√d是把点积数值拉回适合Softmax计算的区间。</p><h4>KV Cache：推理时最重要的优化</h4><p>生成第N个词时，前面N-1个词的K和V已经在之前的步骤算过了，不需要重新算——缓存下来直接复用。KV Cache 的关键不是让后面的 token“天然越来越快”，而是避免把旧 token 的 K/V 投影反复重算。生成新 token 时，新的 Q 会和缓存中的历史 K 做注意力计算；所以上下文越长，注意力相关的计算和 Cache 占用仍会增长。它真正省掉的是大量重复工作。</p><h4>GQA / MLA：两条省 KV Cache 的路线</h4><p>标准多头（MHA）每个 Q 头都有独立的 K/V 头，Cache 最大。GQA 让多个 Q 头共享一组 K/V，是常见的折中方案；Llama 3 官方资料明确采用 GQA。DeepSeek-V3 则采用 MLA（Multi-head Latent Attention），路线不同：通过 latent 表示压缩与组织 KV 信息，以降低缓存与带宽压力。</p><h4>注意力掩码（Masking）</h4><p>生成式模型在训练时用的是'因果掩码'（Causal Mask）：每个词只能看到自己和之前的词，看不到未来的词。这是一个下三角矩阵，把注意力矩阵的上三角部分设为负无穷，Softmax后变成0。这就是模型能'自回归'生成文本的基础——永远只从过去的信息预测未来。</p>"
   },
   residual1: {
     title:"残差连接 Residual Connection", sub:"x + f(x)",
     plain:"把模块处理前的原始输入，直接加到处理后的输出上，而不是完全替换掉。",
-    analogy:"像开会讨论方案时，不是把你原来的想法全部推翻重写，而是在原方案上做批注、加建议——原始信息永远留了一份底稿。",
-    formula:"output = x + Attention(x)",
+    analogy:"像开会讨论方案时，不是把“这一轮”已有方案推倒重来，而是在当前方案上加一层修改。注意：这里的 x 是当前子层的输入，而不是第 0 层的原始输入。",
+    formula:"子层输出 = x + F(x)（x 是这一子层的输入，不是最初输入）",
     why:"网络越叠越深，信息和梯度很容易在传递中衰减甚至消失。残差连接相当于开了一条'信息高速公路'，让原始信号能直达深层，训练几十上百层的网络才成为可能。"
   },
   norm1: {
@@ -1006,7 +1160,7 @@ const DATA = {
   next: {
     title:"采样下一个 Token", sub:"生成 → 拼接 → 循环",
     plain:"根据Softmax给出的概率分布，选出一个词（可能直接选概率最高的，也可能按概率随机采样增加多样性），把它拼接到已有文本后面，然后把新的、更长的句子重新送回最开头，再走一遍整个流程，直到生成结束符或达到长度上限。",
-    analogy:"像接龙游戏，每次只说一个字，但每说一个字之前都要把前面所有人说过的话重新在脑子里过一遍。",
+    analogy:"像接龙游戏，每次只说一个字；系统需要让新 token 关注已有上下文，但工程上会用 KV Cache 复用历史 K/V，而不是把所有投影从头重算。",
     formula:"input = input + next_token → 重新输入模型",
     why:"这解释了为什么大模型是'逐词蹦出来'的，也解释了为什么句子越长、生成一个新词就越慢——因为每一步都要重新处理全部上下文。"
   },
@@ -2011,7 +2165,7 @@ function renderAttHeat(){
     case 0: data = rawScores; title = 'Step 1: QKᵀ 原始点积分数'; maxVal = 2; break;
     case 1: data = scaled; title = 'Step 2: ÷ √d (缩放，防止Softmax梯度消失)'; maxVal = 1.5; break;
     case 2: data = softmaxed; title = 'Step 3: Softmax(按行归一化 → 概率分布)'; maxVal = 1; break;
-    case 3: data = softmaxed; title = 'Step 4: 最终注意力权重 (= softmax × V)'; maxVal = 1; break;
+    case 3: data = softmaxed; title = 'Step 4: 注意力输出 (= Softmax 权重 × V)'; maxVal = 1; break;
   }
   const html = `<div class="mtx-label-top">${title}</div>` +
     mtxGrid(n, n, ATT_HEAT_TOKENS, ATT_HEAT_TOKENS, (r,c)=>{
@@ -2258,10 +2412,10 @@ const TRAIN_STAGES = [
     detail:`<h4>RLHF（基于人类反馈的强化学习）</h4><p>1. 让模型对同一问题生成多个回答，人工标注哪个更好。<br>2. 训练一个"奖励模型"学会预测人类偏好。<br>3. 用 PPO 算法让模型优化回答来最大化奖励分数。</p>
     <h4>DPO（直接偏好优化）</h4><p>不需要单独训练奖励模型，直接用偏好数据优化模型。数学更简洁、工程更稳定。Llama-3 和 DeepSeek 都用了 DPO。</p>
     <h4>对齐目标</h4><p><b>有用</b>：回答切题、信息丰富、不废话<br><b>诚实</b>：不确定时说"我不知道"，不编造<br><b>无害</b>：拒绝有害请求，不输出危险内容</p>
-    <h4>产出</h4><p>最终的"对话模型"——你在 ChatGPT、DeepSeek 里用的版本。知道什么时候该详细、什么时候该简洁、什么时候该拒绝。</p>`
+    <h4>产出</h4><p>一个更符合目标与偏好的可用模型。工程上还会继续做量化、KV Cache 管理、批处理等部署优化，但这些不等同于“重新训练模型”。</p>`
   },
   {
-    num:'04', title:'推理优化',
+    num:'04', title:'部署与推理优化',
     tags:[{t:'量化',c:'#6ec2f2'},{t:'蒸馏',c:'#6ec2f2'}],
     desc:'让训练好的模型在有限算力下跑得更快、更省显存。不改变模型"懂什么"，只改变"怎么跑"。',
     detail:`<h4>量化（Quantization）</h4><p>权重从 FP16 压缩到 INT8 甚至 INT4。显存减半到 1/4，速度提升 2-4 倍，质量损失通常 1-3%。DeepSeek-V3 部署版用了 FP8 量化。</p>
@@ -2369,7 +2523,133 @@ function renderGQA(){
   }).join('');
 }
 renderGQA();
+
+
+// ============ Part 4.5: MLA ============
+function renderMLA(){
+ const el=document.getElementById('mlaFlow'),ex=document.getElementById('mlaExplain'); if(!el||!ex)return;
+ el.innerHTML=`<div class="mla-node input">Q / K / V 信息</div><span class="agent-arrow">→</span><div class="mla-node latent">压缩到 latent 表示</div><span class="agent-arrow">→</span><div class="mla-node cache">Cache latent K/V 表示</div><span class="agent-arrow">→</span><div class="mla-node input">后续 Query 继续取用</div>`;
+ ex.innerHTML='<span class="step-tag">MLA</span>这里不要把它简单理解成“GQA 的另一个名字”。DeepSeek-V3 技术报告明确采用 <b>Multi-head Latent Attention</b>。教学上可以先把它理解为：不要直接把完整的每个 token 的 K/V 全部原样长期塞进 Cache，而是通过更紧凑的 latent 表示来降低缓存与带宽压力。';
+}
+renderMLA();
+
+// ============ Part 5: Hidden State ============
+const hiddenStateStages = [
+  {stage:'Stage 0', name:'Token ID', chip:'它 → 42', desc:'还只是离散编号；没有上下文含义。'},
+  {stage:'Stage 1', name:'Embedding', chip:'e(它)', desc:'查表得到初始向量，是“进入流水线”的起点。'},
+  {stage:'Stage 3', name:'Hidden State', chip:'h₃(它 | 服务员…咖啡)', desc:'经过注意力、MLP、残差等处理，开始携带上下文信息。'},
+  {stage:'Stage N', name:'Final Hidden State', chip:'hL(它 | 全部上下文)', desc:'最后一层的表示，已经是当前上下文下的“模型工作结果”。'},
+  {stage:'Output', name:'Logits', chip:'hL × Wᵀ', desc:'再映射到整个词表，每个 token 得到一个分数。'}
+];
+let hiddenStateStep = 0;
+function renderHiddenState(){
+  const el = document.getElementById('hiddenStateFlow'); if(!el) return;
+  el.innerHTML = hiddenStateStages.map((s,i)=>`<div class="state-card ${i===hiddenStateStep?'active':''}"><div class="state-stage">${s.stage}</div><div class="state-name">${s.name}</div><div class="state-chip">${s.chip}</div><p>${s.desc}</p></div>`).join('');
+  const ex = document.getElementById('hiddenStateExplain');
+  const texts = [
+    '先别把“token”“向量”“hidden state”混成一件事：Token ID 是编号，Embedding 是查表后的初始表示。',
+    'Embedding 是进入 Transformer 的起点。真正随着上下文不断变化的，是后面每一层的 hidden state。',
+    'Hidden State 的核心特点是“带上下文”：同一个 token，在不同句子里、甚至不同层，数值可以完全不同。',
+    '最后一层 hidden state 是当前上下文经过整条 Transformer 流水线后的结果。它不是“答案本身”，而是用来做下一步预测的内部表示。',
+    'Logits 把内部表示投影回词表空间。到这里，模型才把“内部世界”重新翻译成“词表里的候选 token”。'
+  ];
+  ex.innerHTML = `<span class="step-tag">${hiddenStateStages[hiddenStateStep].stage}</span>${texts[hiddenStateStep]}`;
+}
+renderHiddenState();
+document.getElementById('hiddenStateStepBtn')?.addEventListener('click',()=>{hiddenStateStep=(hiddenStateStep+1)%hiddenStateStages.length;renderHiddenState();});
+document.getElementById('hiddenStateResetBtn')?.addEventListener('click',()=>{hiddenStateStep=0;renderHiddenState();});
+
+// Training vs Inference
+const tiButtons = document.querySelectorAll('.ti-btn');
+function renderTrainInfer(mode='train'){
+  const view = document.getElementById('trainInferView');
+  const ex = document.getElementById('trainInferExplain');
+  if(!view||!ex) return;
+  if(mode==='train'){
+    view.innerHTML = `<div class="ti-panel"><h4>同一套 Transformer</h4><div class="ti-row"><div class="ti-node core">Token 序列</div><span class="ti-arrow">→</span><div class="ti-node core">Transformer × N</div><span class="ti-arrow">→</span><div class="ti-node">每个位置的 logits</div></div><div class="ti-list">• 一次可以并行处理很多位置<br>• 用 Causal Mask 防止看到未来 token<br>• 有标准答案 → 计算 Loss<br>• 反向传播 → 梯度 → 更新参数</div></div><div class="ti-panel"><h4>训练外层循环</h4><div class="ti-row"><div class="ti-node train">Batch</div><span class="ti-arrow">→</span><div class="ti-node train">Forward</div><span class="ti-arrow">→</span><div class="ti-node train">Loss</div><span class="ti-arrow">→</span><div class="ti-node train">Backward</div><span class="ti-arrow">→</span><div class="ti-node train">Optimizer</div></div><div class="ti-list">参数在训练过程中被改变；下一批数据看到的是“更新后的模型”。</div></div>`;
+    ex.innerHTML = '<span class="step-tag">训练</span>重点是“让参数发生变化”。Transformer 负责计算，Loss 告诉它错多少，Backprop 算出怎么错，Optimizer 决定参数往哪边挪。';
+  } else {
+    view.innerHTML = `<div class="ti-panel"><h4>还是同一套 Transformer</h4><div class="ti-row"><div class="ti-node core">已有上下文</div><span class="ti-arrow">→</span><div class="ti-node core">Transformer × N</div><span class="ti-arrow">→</span><div class="ti-node">Logits</div><span class="ti-arrow">→</span><div class="ti-node">下一个 Token</div></div><div class="ti-list">• 一次主要取最后一个位置来产生下一个 token<br>• 不更新模型参数<br>• 生成一个 token，再把它放回上下文<br>• KV Cache 复用历史 K/V</div></div><div class="ti-panel"><h4>推理外层循环</h4><div class="ti-row"><div class="ti-node">Context</div><span class="ti-arrow">→</span><div class="ti-node">Decode</div><span class="ti-arrow">→</span><div class="ti-node">Token</div><span class="ti-arrow">↺</span><div class="ti-node">Context + 1</div></div><div class="ti-list">参数不变，变化的是“当前这次输入”对应的 hidden state / KV Cache。</div></div>`;
+    ex.innerHTML = '<span class="step-tag">推理</span>重点是“参数不动，状态在变”。每一次生成的新 token，都会改变下一步看到的上下文。';
+  }
+}
+renderTrainInfer('train');
+tiButtons.forEach(b=>b.addEventListener('click',()=>{tiButtons.forEach(x=>x.classList.remove('active'));b.classList.add('active');renderTrainInfer(b.dataset.ti);}));
+
+// Memory layers
+const memoryData = [
+  {kind:'LONG-TERM',title:'Parameters',desc:'训练后长期保存的权重。',detail:'谁写：Optimizer / 训练过程。谁读：训练和推理。生命周期：模型级，通常跨请求、跨会话、跨重启保存到 checkpoint / model file。可以把它理解成“模型学到的长期能力”。'},
+  {kind:'PER-REQUEST',title:'Hidden State',desc:'当前输入经过网络形成的中间状态。',detail:'谁写：Transformer 前向计算。谁读：下一层 / 后续输出层。生命周期：本次计算过程；每换一段输入，状态就不同。它更像“此刻正在处理的内容”。'},
+  {kind:'DECODE',title:'KV Cache',desc:'本次自回归生成中缓存历史 K/V。',detail:'谁写：本次推理的 Attention。谁读：后续 decode step。生命周期：通常跟着当前请求或当前生成会话走。它不是新的知识，也不是模型参数，只是把已经算过的中间结果留下来，避免重复计算。'},
+  {kind:'CROSS-REQUEST',title:'Prefix Cache',desc:'服务系统可能复用的静态前缀计算结果。',detail:'谁写：推理服务 / cache 系统。谁读：匹配到相同前缀的后续请求。生命周期：取决于服务端缓存策略；可能有 TTL、容量限制、逐出策略，也可能根本不跨请求缓存。它不能简单等同于“模型自己记住了”。'}
+];
+function renderMemoryGrid(){
+ const el=document.getElementById('memoryGrid'), detail=document.getElementById('memoryDetail'); if(!el||!detail)return;
+ el.innerHTML=memoryData.map((m,i)=>`<div class="memory-card ${i===0?'active':''}" data-mi="${i}"><div class="mem-kind">${m.kind}</div><h4>${m.title}</h4><p>${m.desc}</p></div>`).join('');
+ const show=i=>{el.querySelectorAll('.memory-card').forEach(c=>c.classList.toggle('active',+c.dataset.mi===i));detail.innerHTML=memoryData[i].detail;};
+ el.querySelectorAll('.memory-card').forEach(c=>c.addEventListener('click',()=>show(+c.dataset.mi))); show(0);
+}
+renderMemoryGrid();
+
+// Decoder demo
+const DECODE_BASE = [
+  {t:'北京',l:4.0},{t:'上海',l:3.2},{t:'深圳',l:2.4},{t:'广州',l:2.0},{t:'纽约',l:1.1},{t:'苹果',l:0.2}
+];
+function softmax(vals){const m=Math.max(...vals);const ex=vals.map(v=>Math.exp(v-m));const s=ex.reduce((a,b)=>a+b,0);return ex.map(v=>v/s);}
+function renderDecode(){
+ const temp=+document.getElementById('tempSlider')?.value||.8; const k=+document.getElementById('topKSlider')?.value||4;
+ document.getElementById('tempVal').textContent=temp.toFixed(1); document.getElementById('topKVal').textContent=k;
+ const scaled=DECODE_BASE.map(x=>x.l/temp); const probs=softmax(scaled); const order=DECODE_BASE.map((x,i)=>({...x,p:probs[i]})).sort((a,b)=>b.p-a.p);
+ const kept=new Set(order.slice(0,k).map(x=>x.t)); const bars=document.getElementById('decodeBars');
+ if(!bars)return; bars.innerHTML=order.map(x=>`<div class="decode-row"><div class="decode-name">${x.t}</div><div class="decode-bar-bg"><div class="decode-bar-fill" style="width:${(x.p*100).toFixed(1)}%"></div></div><div class="decode-pct">${(x.p*100).toFixed(1)}%</div></div>`).join('');
+ const best=order[0]; const keptText=order.slice(0,k).map(x=>x.t).join('、');
+ document.getElementById('decodeExplain').innerHTML=`<span class="step-tag">Decode</span>当前最高概率是 <b>${best.t}</b>。Temperature = <b>${temp.toFixed(1)}</b> 会改变分布的“尖锐程度”；Top-K = <b>${k}</b> 则先把候选限制在前 ${k} 个。注意：<b>概率分布是模型输出的结果，选哪个 token 是解码策略的决定</b>。例如本例 Top-K 候选集合是：${keptText}。`;
+}
+['tempSlider','topKSlider'].forEach(id=>document.getElementById(id)?.addEventListener('input',renderDecode)); renderDecode();
+
+// One full training step
+const tsmStages=[
+ ['数据','输入 batch'],['Forward','算 hidden states / logits'],['Loss','和 target 对比'],['Backward','算每个参数的梯度'],['Optimizer','决定怎么更新'],['Parameters','下一步使用新参数']
+]; let tsmStep=-1;
+function renderTrainStep(){
+ const el=document.getElementById('trainStepMap'), ex=document.getElementById('trainStepExplain'); if(!el||!ex)return;
+ el.innerHTML=tsmStages.map((s,i)=>`<div class="tsm-node ${i===5?'param':''} ${i===tsmStep?'active':''}">${s[0]}<br><span style="font-size:9px;opacity:.7">${s[1]}</span></div>${i<tsmStages.length-1?'<span class="tsm-arrow">→</span>':''}`).join('');
+ const arr=[
+ '训练从一批 token 开始，不是从一个“问题”开始。','Forward 让数据穿过整套 Transformer，得到每个位置的 logits。','Loss 把预测和正确答案比较，产生一个可优化的数字。','Backward 用链式法则把“错多少”分摊回每个参数。','Optimizer 结合梯度、学习率以及历史统计，决定每个参数这一步怎么更新。','更新完成后，参数已经变了。下一 batch 用的是新的模型。'
+ ]; ex.innerHTML=`<span class="step-tag">${tsmStep<0?'完整循环':('STEP '+(tsmStep+1))}</span>${tsmStep<0?'点“播放一次完整训练 Step”，看看六个节点如何串起来。':arr[tsmStep]}`;
+}
+renderTrainStep();
+document.getElementById('trainStepPlayBtn')?.addEventListener('click',()=>{let i=0;const timer=setInterval(()=>{tsmStep=i;renderTrainStep();i++;if(i>=tsmStages.length){clearInterval(timer);setTimeout(()=>{tsmStep=-1;renderTrainStep();},500);}},500);});
+
+// Part 6 Agent loop
+function renderAgentLoop(){const el=document.getElementById('agentLoop');if(!el)return;el.innerHTML=`<div class="agent-node">用户目标</div><span class="agent-arrow">→</span><div class="agent-node core">LLM<br><small>预测下一步</small></div><span class="agent-arrow">→</span><div class="agent-node tool">Tool Call</div><span class="agent-arrow">→</span><div class="agent-node obs">工具结果</div><span class="agent-arrow">→</span><div class="agent-node core">LLM</div><span class="agent-arrow">↺</span><div class="agent-node">完成 / 继续</div><div class="loop-tag">外部循环：上下文不断更新；模型参数本身不因为“调用工具”而自动改变</div>`;}
+renderAgentLoop();
+
+// Cache compare
+function renderCacheCompare(){const el=document.getElementById('cacheCompare');if(!el)return;el.innerHTML=`<div class="cache-card"><h4>KV Cache · 当前请求内部</h4><div class="cache-timeline"><span class="cache-chip req">prompt</span><span class="cache-chip hit">K/V #1</span><span class="cache-chip hit">K/V #2</span><span class="cache-chip hit">K/V #3</span><span class="cache-chip req">new token</span></div><p>同一次生成里，历史 token 的 K/V 留在内存里给后续 decode 使用。它的核心目标是减少重复计算。</p></div><div class="cache-card"><h4>Prefix Cache · 服务系统层</h4><div class="cache-timeline"><span class="cache-chip hit">system prompt</span><span class="cache-chip hit">tools schema</span><span class="cache-chip req">user query</span><span class="cache-chip req">new suffix</span></div><p>只要服务端实现并命中相同静态前缀，就可能复用这部分已经算过的结果。是否跨请求、保留多久、按什么规则淘汰，取决于具体服务实现。</p></div>`;document.getElementById('cacheCompareExplain').innerHTML='<span class="step-tag">一句话</span>KV Cache 是“这次请求里不要重算过去”；Prefix Cache 是“这个服务如果支持，可以连别的请求里相同的静态前缀也不要重算”。';}
+renderCacheCompare();
+
+// Architecture lab
+let labExperiment=false;
+function renderLab(){const el=document.getElementById('labFlow'),ex=document.getElementById('labExplain');if(!el||!ex)return;
+ if(!labExperiment){el.innerHTML=`<div class="lab-node base">Input H</div><span class="agent-arrow">→</span><div class="lab-node base">Transformer Block</div><span class="agent-arrow">→</span><div class="lab-node base">Output H′</div>`;ex.innerHTML='<span class="step-tag">Baseline</span>这是你实验的基线：保持模型结构、数据、训练配置尽量不变，先知道原模型的 loss / speed / memory，再谈“改结构有没有用”。';}
+ else {el.innerHTML=`<div class="lab-node base">Input H</div><span class="agent-arrow">→</span><div class="lab-node base">Transformer Block</div><span class="agent-arrow">→</span><div class="lab-node experiment">+ Latent Processor</div><span class="agent-arrow">→</span><div class="lab-node base">Output H′</div><div class="lab-node note">最好设计成近似 identity 的残差插入，让旧模型参数可以作为起点，再用训练让新增模块学会贡献。</div>`;ex.innerHTML='<span class="step-tag">实验结构</span>结构一旦改了，前向函数就改了。新增模块如果没有训练，随机或未经适配的参数通常不会自动产生有益能力。你的“baseline vs experiment，只切一个 config”是很合理的实验设计：它能把模块本身的影响隔离出来。';}
+}
+renderLab();
+document.getElementById('labModeBtn')?.addEventListener('click',()=>{labExperiment=!labExperiment;document.getElementById('labModeBtn').textContent=labExperiment?'切换：基线结构':'切换：实验结构';renderLab();});
+
+// Master map
+function renderMasterMap(){const el=document.getElementById('masterMap');if(!el)return;el.innerHTML=`<div class="master-grid">
+<div class="mm-col"><div class="mm-title">01 · 输入与数据</div><div class="mm-node infer">文本</div><div class="mm-node infer">Tokenizer → Token IDs</div><div class="mm-node infer">Embedding → 初始向量</div><div class="mm-node small">Position / RoPE</div></div>
+<div class="mm-col"><div class="mm-title">02 · Transformer 内部</div><div class="mm-node core">Hidden State</div><div class="mm-node core">Attention / QKV</div><div class="mm-node core">Residual + Norm</div><div class="mm-node core">MLP / MoE</div><div class="mm-node core">× N Layers</div></div>
+<div class="mm-col"><div class="mm-title">03 · 输出与两条路线</div><div class="mm-node infer">Final Hidden State</div><div class="mm-node infer">Linear → Logits → Softmax</div><div class="mm-node infer">Decode → next token</div><div class="mm-loop"><strong>推理循环</strong><br><span class="mm-node small" style="display:block;margin-top:6px;">token → context + 1 → 再预测</span></div><div class="mm-node small">KV Cache / Prefix Cache</div></div>
+<div class="mm-col"><div class="mm-title">04 · 训练与系统</div><div class="mm-node train">Target → Loss</div><div class="mm-node train">Backprop → Gradients</div><div class="mm-node train">Optimizer → Parameters</div><div class="mm-loop"><strong>Agent Loop</strong><br><span class="mm-node small" style="display:block;margin-top:6px;">LLM → Tool → Observation → LLM</span></div><div class="mm-node small">Serving / Quantization / Batching</div></div>
+</div>`;}
+renderMasterMap();
+
 </script>
 
+
+<footer style="max-width:1100px;margin:10px auto 60px;padding:16px 18px;color:var(--dim);font-size:11px;line-height:1.7;border-top:1px solid var(--line);font-family:'JetBrains Mono',monospace;">LLM ANATOMY LAB · 本页目标不是让你背完所有名词，而是让每个名词都能在“数据流、状态、训练、推理、系统”五张地图里找到位置。</footer>
 </body>
 </html>
